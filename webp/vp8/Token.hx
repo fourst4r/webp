@@ -7,25 +7,6 @@ package webp.vp8;
 // This file contains token probabilities for decoding DCT/WHT coefficients, as
 // specified in chapter 13.
 
-// class Decoder {
-//     public var tokenProb:Array<Array<Array<Array<Int>>>>;
-//     public var fp:FileParser;
-
-//     public function new(fp:FileParser) {
-//         this.fp = fp;
-//         tokenProb = new Array();
-//     }
-
-//     public function parseTokenProb():Void {
-//         for (i in 0...tokenProb.length)
-//             for (j in 0...tokenProb[i].length)
-//                 for (k in 0...tokenProb[i][j].length)
-//                     for (l in 0...tokenProb[i][j][k].length)
-//                         if (fp.readBit(tokenProbUpdateProb[i][j][k][l]))
-//                             tokenProb[i][j][k][l] = fp.readUint(uniformProb, 8);
-//     }
-// }
-
 // The plane enumeration is specified in section 13.3.
 final planeY1WithY2 = 0;
 final planeY2 = 1;
