@@ -4,6 +4,7 @@ class Quant {
     public var y1:Array<Int> = [0, 0];
     public var y2:Array<Int> = [0, 0];
     public var uv:Array<Int> = [0, 0];
+    public function new() {}
 }
 
 final dequantTableDC:Array<Int> = [

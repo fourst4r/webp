@@ -1,0 +1,5 @@
+--class-path src
+--class-path test
+--main Test
+--interp
+--library format

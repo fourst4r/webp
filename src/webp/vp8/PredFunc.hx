@@ -71,7 +71,7 @@ function checkTopLeftPred(mbx: Int, mby: Int, p: Int): Int {
     return predDC;
 }
 
-final predFunc4 = /*[...]func(*Decoder, int, int)*/[
+final predFunc4 = /*[...]func(*Vp8Decoder, int, int)*/[
 	predFunc4DC,
 	predFunc4TM,
 	predFunc4VE,
@@ -87,7 +87,7 @@ final predFunc4 = /*[...]func(*Decoder, int, int)*/[
 	null,
 ];
 
-final predFunc8 = /*[...]func(*Decoder, int, int)*/[
+final predFunc8 = /*[...]func(*Vp8Decoder, int, int)*/[
 	predFunc8DC,
 	predFunc8TM,
 	predFunc8VE,
@@ -103,7 +103,7 @@ final predFunc8 = /*[...]func(*Decoder, int, int)*/[
 	predFunc8DCTopLeft,
 ];
 
-final predFunc16 = /*[...]func(*Decoder, int, int)*/[
+final predFunc16 = /*[...]func(*Vp8Decoder, int, int)*/[
 	predFunc16DC,
 	predFunc16TM,
 	predFunc16VE,
@@ -119,7 +119,7 @@ final predFunc16 = /*[...]func(*Decoder, int, int)*/[
 	predFunc16DCTopLeft,
 ];
 
-function predFunc4DC(z: Decoder, y: Int, x: Int): Void {
+function predFunc4DC(z: Vp8Decoder, y: Int, x: Int): Void {
     var sum: Int = 4;
     for (i in 0...4) {
         sum += z.ybr[y - 1][x + i];
@@ -136,7 +136,7 @@ function predFunc4DC(z: Decoder, y: Int, x: Int): Void {
     }
 }
 
-function predFunc4TM(z: Decoder, y: Int, x: Int): Void {
+function predFunc4TM(z: Vp8Decoder, y: Int, x: Int): Void {
     var delta0 = -z.ybr[y - 1][x - 1];
     for (j in 0...4) {
         var delta1 = delta0 + z.ybr[y + j][x - 1];
@@ -147,7 +147,7 @@ function predFunc4TM(z: Decoder, y: Int, x: Int): Void {
     }
 }
 
-function predFunc4VE(z: Decoder, y: Int, x: Int): Void {
+function predFunc4VE(z: Vp8Decoder, y: Int, x: Int): Void {
     var a = z.ybr[y - 1][x - 1];
     var b = z.ybr[y - 1][x + 0];
     var c = z.ybr[y - 1][x + 1];
@@ -168,7 +168,7 @@ function predFunc4VE(z: Decoder, y: Int, x: Int): Void {
     }
 }
 
-function predFunc4HE(z: Decoder, y: Int, x: Int): Void {
+function predFunc4HE(z: Vp8Decoder, y: Int, x: Int): Void {
     var s = z.ybr[y + 3][x - 1];
     var r = z.ybr[y + 2][x - 1];
     var q = z.ybr[y + 1][x - 1];
@@ -188,7 +188,7 @@ function predFunc4HE(z: Decoder, y: Int, x: Int): Void {
     }
 }
 
-function predFunc4RD(z: Decoder, y: Int, x: Int): Void {
+function predFunc4RD(z: Vp8Decoder, y: Int, x: Int): Void {
     var s = z.ybr[y + 3][x - 1];
     var r = z.ybr[y + 2][x - 1];
     var q = z.ybr[y + 1][x - 1];
@@ -228,7 +228,7 @@ function predFunc4RD(z: Decoder, y: Int, x: Int): Void {
     z.ybr[y + 3][x + 3] = pab;
 }
 
-function predFunc4VR(z:Decoder, y:Int, x:Int):Void {
+function predFunc4VR(z:Vp8Decoder, y:Int, x:Int):Void {
     var r = z.ybr[y+2][x-1];
     var q = z.ybr[y+1][x-1];
     var p = z.ybr[y+0][x-1];
@@ -271,7 +271,7 @@ function predFunc4VR(z:Decoder, y:Int, x:Int):Void {
     z.ybr[y+3][x+3] = bcd;
 }
 
-function predFunc4LD(z:Decoder, y:Int, x:Int):Void {
+function predFunc4LD(z:Vp8Decoder, y:Int, x:Int):Void {
     var a = z.ybr[y-1][x+0];
     var b = z.ybr[y-1][x+1];
     var c = z.ybr[y-1][x+2];
@@ -310,7 +310,7 @@ function predFunc4LD(z:Decoder, y:Int, x:Int):Void {
     z.ybr[y+3][x+3] = ghh;
 }
 
-function predFunc4VL(z: Decoder, y:Int, x:Int):Void {
+function predFunc4VL(z: Vp8Decoder, y:Int, x:Int):Void {
     var a = z.ybr[y-1][x+0];
     var b = z.ybr[y-1][x+1];
     var c = z.ybr[y-1][x+2];
@@ -350,7 +350,7 @@ function predFunc4VL(z: Decoder, y:Int, x:Int):Void {
     z.ybr[y+3][x+3] = fgh;
 }
 
-function predFunc4HD(z: Decoder, y:Int, x:Int):Void {
+function predFunc4HD(z: Vp8Decoder, y:Int, x:Int):Void {
     var s = z.ybr[y+3][x-1];
     var r = z.ybr[y+2][x-1];
     var q = z.ybr[y+1][x-1];
@@ -390,7 +390,7 @@ function predFunc4HD(z: Decoder, y:Int, x:Int):Void {
     z.ybr[y+3][x+3] = rqp;
 }
 
-function predFunc4HU(z:Decoder, y:Int, x:Int):Void {
+function predFunc4HU(z:Vp8Decoder, y:Int, x:Int):Void {
     var s:Int = z.ybr[y+3][x-1];
     var r:Int = z.ybr[y+2][x-1];
     var q:Int = z.ybr[y+1][x-1];
@@ -421,7 +421,7 @@ function predFunc4HU(z:Decoder, y:Int, x:Int):Void {
     z.ybr[y+3][x+3] = sss;
 }
 
-function predFunc8DC(z:Decoder, y:Int, x:Int):Void {
+function predFunc8DC(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 8;
     for (i in 0...8) {
         sum += z.ybr[y-1][x+i];
@@ -437,7 +437,7 @@ function predFunc8DC(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8TM(z:Decoder, y:Int, x:Int):Void {
+function predFunc8TM(z:Vp8Decoder, y:Int, x:Int):Void {
     var delta0:Int = -z.ybr[y-1][x-1];
     for (j in 0...8) {
         var delta1:Int = delta0 + z.ybr[y+j][x-1];
@@ -448,7 +448,7 @@ function predFunc8TM(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8VE(z:Decoder, y:Int, x:Int):Void {
+function predFunc8VE(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...8) {
         for (i in 0...8) {
             z.ybr[y+j][x+i] = z.ybr[y-1][x+i];
@@ -456,7 +456,7 @@ function predFunc8VE(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8HE(z:Decoder, y:Int, x:Int):Void {
+function predFunc8HE(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...8) {
         for (i in 0...8) {
             z.ybr[y+j][x+i] = z.ybr[y+j][x-1];
@@ -464,7 +464,7 @@ function predFunc8HE(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8DCTop(z:Decoder, y:Int, x:Int):Void {
+function predFunc8DCTop(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 4;
     for (j in 0...8) {
         sum += z.ybr[y+j][x-1];
@@ -477,7 +477,7 @@ function predFunc8DCTop(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8DCLeft(z:Decoder, y:Int, x:Int):Void {
+function predFunc8DCLeft(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 4;
     for (i in 0...8) {
         sum += z.ybr[y-1][x+i];
@@ -490,7 +490,7 @@ function predFunc8DCLeft(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc8DCTopLeft(z:Decoder, y:Int, x:Int):Void {
+function predFunc8DCTopLeft(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...8) {
         for (i in 0...8) {
             z.ybr[y+j][x+i] = 0x80;
@@ -498,7 +498,7 @@ function predFunc8DCTopLeft(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16DC(z:Decoder, y:Int, x:Int):Void {
+function predFunc16DC(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 16;
     for (i in 0...16) {
         sum += z.ybr[y-1][x+i];
@@ -514,7 +514,7 @@ function predFunc16DC(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16TM(z:Decoder, y:Int, x:Int):Void {
+function predFunc16TM(z:Vp8Decoder, y:Int, x:Int):Void {
     var delta0:Int = -z.ybr[y-1][x-1];
     for (j in 0...16) {
         var delta1:Int = delta0 + z.ybr[y+j][x-1];
@@ -525,7 +525,7 @@ function predFunc16TM(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16VE(z:Decoder, y:Int, x:Int):Void {
+function predFunc16VE(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...16) {
         for (i in 0...16) {
             z.ybr[y+j][x+i] = z.ybr[y-1][x+i];
@@ -533,7 +533,7 @@ function predFunc16VE(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16HE(z:Decoder, y:Int, x:Int):Void {
+function predFunc16HE(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...16) {
         for (i in 0...16) {
             z.ybr[y+j][x+i] = z.ybr[y+j][x-1];
@@ -541,7 +541,7 @@ function predFunc16HE(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16DCTop(z:Decoder, y:Int, x:Int):Void {
+function predFunc16DCTop(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 8;
     for (j in 0...16) {
         sum += z.ybr[y+j][x-1];
@@ -554,7 +554,7 @@ function predFunc16DCTop(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16DCLeft(z:Decoder, y:Int, x:Int):Void {
+function predFunc16DCLeft(z:Vp8Decoder, y:Int, x:Int):Void {
     var sum:Int = 8;
     for (i in 0...16) {
         sum += z.ybr[y-1][x+i];
@@ -567,7 +567,7 @@ function predFunc16DCLeft(z:Decoder, y:Int, x:Int):Void {
     }
 }
 
-function predFunc16DCTopLeft(z:Decoder, y:Int, x:Int):Void {
+function predFunc16DCTopLeft(z:Vp8Decoder, y:Int, x:Int):Void {
     for (j in 0...16) {
         for (i in 0...16) {
             z.ybr[y+j][x+i] = 0x80;

@@ -8,6 +8,9 @@ package webp.vp8;
 
 // This file implements the top-level decoding algorithm.
 
+import webp.types.UInt8Vector;
+import webp.types.Int8Vector;
+import haxe.io.Input;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;
 import haxe.ds.Vector;
@@ -20,10 +23,10 @@ import webp.vp8.Pred;
 import webp.vp8.PredFunc;
 
 class LimitReader {
-    public var r:BytesInput;
+    public var r:Input;
     public var n:Int;
 
-    public function new(r:BytesInput, n:Int) {
+    public function new(r:Input, n:Int) {
         this.r = r;
         this.n = n;
     }
@@ -55,9 +58,9 @@ typedef SegmentHeader = {
     var useSegment:Bool;
     var updateMap:Bool;
     var relativeDelta:Bool;
-    var quantizer:Array<Int>;
-    var filterStrength:Array<Int>;
-    var prob:Array<Int>;
+    var quantizer:Int8Vector;
+    var filterStrength:Int8Vector;
+    var prob:UInt8Vector;
 }
 
 final nRefLFDelta = 4;
@@ -68,23 +71,23 @@ typedef FilterHeader = {
     var level:Int;
     var sharpness:Int;
     var useLFDelta:Bool;
-    var refLFDelta:Array<Int>;
-    var modeLFDelta:Array<Int>;
-    var perSegmentLevel:Array<Int>;
+    var refLFDelta:Int8Vector;
+    var modeLFDelta:Int8Vector;
+    var perSegmentLevel:Int8Vector;
 }
 
 class MB {
-    public var pred:Array<Int>;
+    public var pred:UInt8Vector;
     public var nzMask:Int;
     public var nzY16:Int;
     public function new() {
-        pred = [];
+        pred = new UInt8Vector(4);
         nzMask = 0;
         nzY16 = 0;
     }
 }
 
-class Decoder {
+class Vp8Decoder {
     public var r:LimitReader;
     public var scratch:haxe.io.Bytes;
     public var img:YccImage;
@@ -119,6 +122,7 @@ class Decoder {
         scratch = haxe.io.Bytes.alloc(8);
         op = new Vector(8);
         quant = new Vector(nSegment);
+        for (i in 0...quant.length) quant[i] = new Quant();
 
         tokenProb = [];
         // tokenProb = new Vector(nPlane);
@@ -133,8 +137,12 @@ class Decoder {
         // }
 
         filterParams = new Vector(nSegment);
-        for (i in 0...filterParams.length) filterParams[i] = new Vector(2);
-
+        for (i in 0...filterParams.length) {
+            filterParams[i] = new Vector(2);
+            filterParams[i][0] = { level:0, ilevel:0, hlevel:0, inner:false };
+            filterParams[i][1] = { level:0, ilevel:0, hlevel:0, inner:false };
+        }
+        
         perMBFilterParams = [];
         upMB = [];
 
@@ -145,9 +153,19 @@ class Decoder {
         
         ybr = new Vector(1 + 16 + 1 + 8);
         for (i in 0...ybr.length) ybr[i] = new Vector(32);
+
+        filterHeader = {
+            simple: false,
+            perSegmentLevel: new Int8Vector(nSegment),
+            modeLFDelta: new Int8Vector(nModeLFDelta),
+            refLFDelta: new Int8Vector(nRefLFDelta),
+            useLFDelta: false,
+            sharpness: 0,
+            level: 0
+        };
     }
 
-    public function init(r:BytesInput, n:Int):Void {
+    public function init(r:Input, n:Int):Void {
         this.r = new LimitReader(r, n);
     }
 
@@ -185,13 +203,14 @@ class Decoder {
         mbh = (frameHeader.height + 0x0f) >> 4;
 
         segmentHeader = {
-            prob: [0xff, 0xff, 0xff],
-            filterStrength: [],
-            quantizer: [],
+            prob: new UInt8Vector(nSegmentProb),//[0xff, 0xff, 0xff],
+            filterStrength: new Int8Vector(nSegment),
+            quantizer: new Int8Vector(nSegment),
             useSegment: false,
             updateMap: false,
             relativeDelta: false,
         };
+        for (i in 0...segmentHeader.prob.length) segmentHeader.prob[i] = 0xff;
 
         tokenProb = defaultTokenProb;
         segment = 0;
@@ -207,7 +226,8 @@ class Decoder {
         
         var m = YccImage.blank(16 * mbw, 16 * mbh);
         // TODO: impl subimage
-        // img = m.subImage(0, 0, frameHeader.width, frameHeader.height);
+        // img = m;
+        img = m.subImage(0, 0, frameHeader.width, frameHeader.height);
         perMBFilterParams = [];
         upMB = [];
     }
@@ -295,7 +315,7 @@ class Decoder {
         r.readFull(buf);
         for (i in 0...nOP) {
             if (i >= partLens.length) break;
-            op[i].init(buf.sub(0, partLens[i]));
+            op[i] = new Partition(buf.sub(0, partLens[i]));
         }
         return true;
     }
@@ -305,7 +325,7 @@ class Decoder {
         var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
         try r.readFull(firstPartition) catch (e) return false;
 
-        fp.init(firstPartition);
+        fp = new Partition(firstPartition);
 
         if (frameHeader.keyFrame) {
             // Read and ignore color space and pixel clamp values

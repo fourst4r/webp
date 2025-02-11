@@ -35,7 +35,9 @@ class Partition {
         223, 225, 227, 229, 231, 233, 235, 237, 239, 241, 243, 245, 247, 249, 251, 253
     ];
 
-    public function new() {}
+    public function new(buf:Bytes) {
+		init(buf);
+	}
 
     // Initialize the partition
 	public function init(buf:Bytes):Void {
