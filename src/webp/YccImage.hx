@@ -2,6 +2,10 @@ package webp;
 
 import haxe.io.Bytes;
 
+enum SubsampleRatio {
+	Sr420;
+}
+
 private typedef Rect = {
 	minX:Int,
 	minY:Int,
@@ -16,6 +20,7 @@ class YccImage {
 	public var YStride:Int;
 	public var CStride:Int;
 	public var rect:Rect;
+	public var subsampleRatio:SubsampleRatio;
 
 	function new() {
 	}
@@ -52,21 +57,13 @@ class YccImage {
 		sub.Cr = Cr.sub(ci, Cr.length-ci);
 		sub.YStride = YStride;
 		sub.CStride = CStride;
+		sub.subsampleRatio = subsampleRatio;
 		sub.rect = {
 			minX: minX,
 			maxX: maxX,
 			minY: minY,
 			maxY: maxY,
 		};
-		// return &YCbCr{
-		// 	Y:              p.Y[yi:],
-		// 	Cb:             p.Cb[ci:],
-		// 	Cr:             p.Cr[ci:],
-		// 	SubsampleRatio: p.SubsampleRatio,
-		// 	YStride:        p.YStride,
-		// 	CStride:        p.CStride,
-		// 	Rect:           r,
-		// }
 		return sub;
 	}
 
