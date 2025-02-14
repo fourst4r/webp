@@ -11,29 +11,29 @@ function main() {
     final fi = File.read("test/1.webp");
     final img = WebPDecoder.decode(fi).image;
     fi.close();
-    var rgba = yccToRgb(img);
+    var rgba = yccToRgba(img);
 
-    final fo = File.write("1.bmp");
-    final bmp = new format.bmp.Writer(fo);
-    bmp.write({
-        header: {
-            width: img.rect.maxX,
-            height: img.rect.maxY,
-            paddedStride: 0,
-            topToBottom: true,
-            bpp: 24,
-            dataLength: rgba.length,
-            compression: 0,
-        },
-        pixels: rgba
-    });
-    // var jpg = new format.jpg.Writer(fo);
-    // jpg.write({
-    //     width: img.rect.maxX - img.rect.minX,
-    //     height: img.rect.maxY - img.rect.minY,
-    //     pixels: rgba,
-    //     quality: 100,
+    final fo = File.write("1.jpg");
+    // final bmp = new format.jpg.Writer(fo);
+    // bmp.write({
+    //     header: {
+    //         width: img.rect.maxX,
+    //         height: img.rect.maxY,
+    //         paddedStride: 0,
+    //         topToBottom: true,
+    //         bpp: 24,
+    //         dataLength: rgba.length,
+    //         compression: 0,
+    //     },
+    //     pixels: rgba
     // });
+    var jpg = new format.jpg.Writer(fo);
+    jpg.write({
+        width: img.rect.maxX - img.rect.minX,
+        height: img.rect.maxY - img.rect.minY,
+        pixels: rgba,
+        quality: 100,
+    });
     fo.close();
     trace("ok");
 }

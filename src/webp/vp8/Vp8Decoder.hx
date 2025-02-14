@@ -152,7 +152,7 @@ class Vp8Decoder {
         coeff = new Vector(1*16*16 + 2*8*8 + 1*4*4);
         
         ybr = new Vector(1 + 16 + 1 + 8);
-        for (i in 0...ybr.length) ybr[i] = new Vector(32);
+        for (i in 0...ybr.length) ybr[i] = new Vector(32, 0);
 
         filterHeader = {
             simple: false,
@@ -325,7 +325,7 @@ class Vp8Decoder {
         var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
         try r.readFull(firstPartition) catch (e) return false;
 
-        fp = new Partition(firstPartition);
+        fp = new Partition(firstPartition); // certified
 
         if (frameHeader.keyFrame) {
             // Read and ignore color space and pixel clamp values
@@ -334,11 +334,11 @@ class Vp8Decoder {
         }
 
         parseSegmentHeader();
-        parseFilterHeader();
+        parseFilterHeader(); // certified
 
         if (!parseOtherPartitions()) return false;
 
-        parseQuant();
+        parseQuant(); // certified
 
         if (!frameHeader.keyFrame) {
             // Golden and AltRef frames are only for video
@@ -348,7 +348,7 @@ class Vp8Decoder {
         // Read and ignore refreshLastFrameBuffer bit
         fp.readBit(uniformProb);
 
-        parseTokenProb();
+        parseTokenProb(); // certified
         useSkipProb = fp.readBit(uniformProb);
 
         if (useSkipProb) {
@@ -608,7 +608,7 @@ class Vp8Decoder {
         var p = prob[bands[n]][context];
         
         if (!r.readBit(p[0])) return 0;
-        
+        //1,165,230,250,199,191,247,159,255,255,128
         while (n != 16) {
             n++;
             if (!r.readBit(p[1])) {
@@ -638,8 +638,8 @@ class Vp8Decoder {
                         v += r.readUint(tab[i], 1);
                     }
                     v += 3 + (8 << cat);
-                    p = prob[bands[n]][2];
                 }
+                p = prob[bands[n]][2];
             }
             
             var z = zigzag[n - 1];
@@ -801,7 +801,7 @@ class Vp8Decoder {
         }
         
         prepareYBR(mbx, mby);
-        
+        // formatMatrix(ybr);
         usePredY16 = fp.readBit(145);
         
         if (usePredY16) {
@@ -827,7 +827,8 @@ class Vp8Decoder {
         }
         
         reconstructMacroblock(mbx, mby);
-        
+        // formatMatrix(ybr);
+
         for (y in 0...16) {
             var i = (mby * img.YStride + mbx) * 16 + y * img.YStride;
             copy(img.Y, i, ybr[ybrYY + y], ybrYX, 16);
@@ -842,6 +843,18 @@ class Vp8Decoder {
         return skip;
     }
 
+    static function formatMatrix<T>(matrix: Vector<Vector<T>>) {
+        var output = new StringBuf();
+        for (row in matrix) {
+            output.add("| ");
+            for (cell in row) {
+                output.add('${Std.string(cell)} ');
+            }
+            output.add("|\n");
+        }
+        trace(output.toString());
+    }
+
     static function copy(dst:Bytes, pos:Int, src:Vector<Int>, srcpos:Int, len:Int):Void {
         #if !neko
 		if (pos < 0 || srcpos < 0 || len < 0 || pos + len > dst.length || srcpos + len > src.length)
@@ -849,7 +862,7 @@ class Vp8Decoder {
 		#end
 
         var dsti = pos;
-        for (srci in srcpos...len) {
+        for (srci in srcpos...(srcpos + len)) {
             dst.set(dsti++, src[srci]);
         }
     }
