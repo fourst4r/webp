@@ -675,8 +675,8 @@ class Vp8Decoder {
         var nzACMask: Int = 0;
         var coeffBase: Int = 0;
         
-        var lnz = unpack[leftMB.nzMask & 0x0f];
-        var unz = unpack[upMB[mbx].nzMask & 0x0f];
+        var lnz = unpack[leftMB.nzMask & 0x0f].copy();
+        var unz = unpack[upMB[mbx].nzMask & 0x0f].copy();
         
         // Luma processing
         for (y in 0...4) {
@@ -698,8 +698,8 @@ class Vp8Decoder {
         var unzMask = pack(unz, 0);
         
         // Chroma processing
-        lnz = unpack[leftMB.nzMask >> 4];
-        unz = unpack[upMB[mbx].nzMask >> 4];
+        lnz = unpack[leftMB.nzMask >> 4].copy();
+        unz = unpack[upMB[mbx].nzMask >> 4].copy();
         
         var c = 0;
         while (c < 4) {
