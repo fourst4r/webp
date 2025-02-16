@@ -6,27 +6,49 @@ import webp.YccImage;
 import sys.io.File;
 import webp.WebPDecoder;
 
+class TrackedInput extends haxe.io.Input {
+    public var i:haxe.io.Input;
+
+    public function new(i) this.i = i;
+
+    override function read(nbytes:Int):Bytes {
+        final b = i.read(nbytes);
+        trace('read ${b.length} of $nbytes');
+        return b;
+    }
+
+    override function readAll(?bufsize:Int):Bytes {
+        final b = i.readAll(bufsize);
+        trace('read ${b.length}');
+        return b;
+    }
+
+    override function readByte():Int {
+        trace('read 1');
+        return i.readByte();
+    }
+
+    override function readBytes(s:Bytes, pos:Int, len:Int):Int {
+        final n = i.readBytes(s, pos, len);
+        trace('read ${n} of $len');
+        return n;
+    }
+
+    override function readFullBytes(s:Bytes, pos:Int, len:Int) {
+        trace('reading $len');
+        super.readFullBytes(s, pos, len);
+    }
+}
+
 function main() {
     trace(Sys.getCwd());
-    final fi = File.read("test/1.webp");
+    final fi = File.read("test/a.webp");
     final img = WebPDecoder.decode(fi).image;
     fi.close();
+
     var rgba = yccToRgba(img);
 
-    final fo = File.write("1.jpg");
-    // final bmp = new format.jpg.Writer(fo);
-    // bmp.write({
-    //     header: {
-    //         width: img.rect.maxX,
-    //         height: img.rect.maxY,
-    //         paddedStride: 0,
-    //         topToBottom: true,
-    //         bpp: 24,
-    //         dataLength: rgba.length,
-    //         compression: 0,
-    //     },
-    //     pixels: rgba
-    // });
+    final fo = File.write("a.jpg");
     var jpg = new format.jpg.Writer(fo);
     jpg.write({
         width: img.rect.maxX - img.rect.minX,

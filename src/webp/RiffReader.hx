@@ -31,7 +31,6 @@ class RiffReader {
 
         final chunkLen = buf.getInt32(4);
 
-
         // return newListReader(u32(buf, 4), r);
     
         if (chunkLen < 4) {
@@ -72,11 +71,12 @@ class RiffReader {
             throw "EOF";
         }
 
-        if (totalLen < 8) {
+        final chunkHeaderSize = 8;
+        if (totalLen < chunkHeaderSize) {
             throw "ShortChunkHeader";
         }
-        totalLen -= 8;
-        buf = r.read(8);
+        totalLen -= chunkHeaderSize;
+        buf = r.read(chunkHeaderSize);
 
         final chunkID = buf.getString(0, 4);
         chunkLen = buf.getInt32(4); //(buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7];
@@ -106,12 +106,13 @@ class ChunkReader extends Input {
         if (z.chunkReader != this) return 0;
 
         var n = Std.int(Math.min(z.chunkLen, p.length));
-        var bytesRead = z.r.readBytes(p, 0, n);
+        // var bytesRead = z.r.readBytes(p, 0, n);
+        var bytesRead = n; z.r.readFullBytes(p, 0, n);
         z.totalLen -= bytesRead;
         z.chunkLen -= bytesRead;
-        if (bytesRead < n) {
-            throw "UnexpectedEOF";
-        }
+        // if (bytesRead < n) {
+        //     throw "UnexpectedEOF";
+        // }
         return bytesRead;
     }
 

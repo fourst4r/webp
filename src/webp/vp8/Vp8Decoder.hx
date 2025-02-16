@@ -35,7 +35,7 @@ class LimitReader {
         if (p.length > n) {
             throw "Unexpected EOF";
         }
-        r.readBytes(p, 0, p.length);
+        r.readFullBytes(p, 0, p.length);
         n -= p.length;
     }
 }
@@ -323,7 +323,10 @@ class Vp8Decoder {
     function parseOtherHeaders():Bool {
         // Initialize and parse the first partition
         var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
-        try r.readFull(firstPartition) catch (e) return false;
+        try 
+            r.readFull(firstPartition) 
+        catch (e) 
+                return false;
 
         fp = new Partition(firstPartition); // certified
 
