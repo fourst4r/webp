@@ -1,5 +1,8 @@
 package webp;
 
+import haxe.io.BytesInput;
+import webp.types.ConcatInput;
+import webp.vp8l.Vp8LDecoder;
 import haxe.io.Bytes;
 import haxe.io.Input;
 import webp.vp8.Vp8Decoder;
@@ -125,30 +128,27 @@ class WebPDecoder {
                 }
 
                 // Create a synthesized VP8L header
-                var header = Bytes.ofData([
-                    0x2f, // VP8L magic number
-                    widthMinusOne & 0xff,
-                    (widthMinusOne >> 8) | ((heightMinusOne & 0x3f) << 6),
-                    (heightMinusOne >> 2) & 0xff,
-                    (heightMinusOne >> 10) & 0xff
-                ]);
+                var header = Bytes.alloc(5);
+                header.set(0, 0x2f); // VP8L magic number
+                header.set(1, widthMinusOne & 0xff);
+                header.set(2, (widthMinusOne >> 8) | ((heightMinusOne & 0x3f) << 6));
+                header.set(3, (heightMinusOne >> 2) & 0xff);
+                header.set(4, (heightMinusOne >> 10) & 0xff);
 
                 // Combine header and chunk data
-                var combined = Bytes.alloc(header.length + chunkData.length);
-                combined.blit(0, header, 0, header.length);
-                combined.blit(header.length, chunkData.readAll(), 0, chunkData.length);
+                final concatInput = new ConcatInput(new BytesInput(header), chunkData);
 
                 // Decode VP8L compressed alpha values
-                var alphaImage = Vp8L.decode(combined); // Hypothetical library function
+                var alphaImage = Vp8LDecoder.decode(concatInput);
                 if (alphaImage == null) {
                     throw "Failed to decode VP8L";
                 }
 
                 // Extract alpha values from the green channel of the image
                 var pix = alphaImage.pix; // Assuming pix is an array of bytes (ARGB format)
-                var alpha = Bytes.alloc(pix.length / 4);
+                var alpha = Bytes.alloc(Std.int(pix.length / 4));
                 for (i in 0...alpha.length) {
-                    alpha.set(i, pix[i * 4 + 1]); // Green channel
+                    alpha.set(i, pix.get(i * 4 + 1)); // Green channel
                 }
                 return alpha;
 
