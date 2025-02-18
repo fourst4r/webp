@@ -43,7 +43,7 @@ class TrackedInput extends haxe.io.Input {
 function main() {
     trace(Sys.getCwd());
     final fi = File.read("test/a.webp");
-    final img = WebPDecoder.decode(fi).image;
+    final img = WebPDecoder.decode(new TrackedInput(fi)).image;
     fi.close();
 
     var rgba = yccToRgba(img);

@@ -99,21 +99,33 @@ class ChunkReader extends Input {
     }
 
     public override function readByte():Int {
-        return z.r.readByte();
+        final b = z.r.readByte();
+        z.totalLen--;
+        z.chunkLen--;
+        if (z.chunkLen == 0)
+            trace("ok");
+        return b;
     }
 
     public override function readBytes(p:Bytes, pos:Int, len:Int):Int {
-        if (z.chunkReader != this) return 0;
+        if (z.chunkReader != this)
+            throw "Stale reader";
 
         var n = Std.int(Math.min(z.chunkLen, p.length));
-        // var bytesRead = z.r.readBytes(p, 0, n);
-        var bytesRead = n; z.r.readFullBytes(p, 0, n);
+        var bytesRead = z.r.readBytes(p, 0, n);
+        // var bytesRead = n; z.r.readFullBytes(p, 0, n);
         z.totalLen -= bytesRead;
         z.chunkLen -= bytesRead;
         // if (bytesRead < n) {
         //     throw "UnexpectedEOF";
         // }
         return bytesRead;
+    }
+
+    public override function readFullBytes(s:Bytes, pos:Int, len:Int) {
+        super.readFullBytes(s, pos, len);
+        z.totalLen -= len;
+        z.chunkLen -= len;
     }
 
     // public function read(p:haxe.io.Bytes):Int {
