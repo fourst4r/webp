@@ -7,8 +7,21 @@ import haxe.io.Bytes;
 import haxe.io.Input;
 import webp.vp8.Vp8Decoder;
 
+
+
+// typedef Image = {
+//     header:FrameHeader,
+//     y:Bytes,
+//     ystride:Int, 
+//     cb:Bytes, 
+//     cr:Bytes,
+//     cstride:Int,
+//     ?a:Bytes,
+//     ?astride:Int,
+// }
+
 class WebPDecoder {
-    public static function decode(input:Input, configOnly:Bool = false) {
+    public static function decode(input:Input, configOnly:Bool = false):Image {
         var riffReader = new RiffReader(input);
         // if (riffReader.formType != WEBP) 
         //     throw "Invalid format";
@@ -43,7 +56,7 @@ class WebPDecoder {
 
                     var vp8Decoder = new Vp8Decoder();
                     vp8Decoder.init(chunk.chunkData, chunk.chunkLen);
-                    var frameHeader = vp8Decoder.decodeFrameHeader();
+                    var header = vp8Decoder.decodeFrameHeader();
 
                     if (configOnly) {
                         throw "Unimplemented";
@@ -54,14 +67,20 @@ class WebPDecoder {
                         // };
                     }
 
-                    var image = vp8Decoder.decodeFrame();
-                    if (alpha != null) {
-                        throw "Not implemented";
-                        // return {
-                        //     image: new NYCbCrAImage(image, alpha, alphaStride)
-                        // };
-                    }
-                    return { image: image };
+                    var img = vp8Decoder.decodeFrame();
+                    
+                    // return {
+                    //     header: header,
+                    //     y: img.Y,
+                    //     ystride: img.YStride,
+                    //     cb: img.Cb,
+                    //     cr: img.Cr,
+                    //     cstride: img.CStride,
+                    //     a: alpha,
+                    //     astride: alphaStride
+                    // };
+                    
+                    return YCbCrA(header, img.Y, img.YStride, img.Cb, img.Cr, img.CStride, alpha, alphaStride);
 
                 case "VP8L":
                     // if (wantAlpha || alpha != null) 

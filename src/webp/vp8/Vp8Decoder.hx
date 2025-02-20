@@ -40,17 +40,6 @@ class LimitReader {
     }
 }
 
-typedef FrameHeader = {
-    var keyFrame:Bool;
-    var versionNumber:Int;
-    var showFrame:Bool;
-    var firstPartitionLen:Int;
-    var width:Int;
-    var height:Int;
-    var xScale:Int;
-    var yScale:Int;
-}
-
 final nSegment = 4;
 final nSegmentProb = 3;
 

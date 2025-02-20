@@ -43,21 +43,64 @@ class TrackedInput extends haxe.io.Input {
 function main() {
     trace(Sys.getCwd());
     final fi = File.read("test/a.webp");
-    final img = WebPDecoder.decode(new TrackedInput(fi)).image;
+    // final img = WebPDecoder.decode(new TrackedInput(fi)).image;
+    final img = WebPDecoder.decode(new TrackedInput(fi));
     fi.close();
 
-    var rgba = yccToRgba(img);
+    final img = toARGB(img);
+        // toARGB(img);
+    // var rgba = yccToRgba(img);
 
-    final fo = File.write("a.jpg");
-    var jpg = new format.jpg.Writer(fo);
-    jpg.write({
-        width: img.rect.maxX - img.rect.minX,
-        height: img.rect.maxY - img.rect.minY,
-        pixels: rgba,
-        quality: 100,
-    });
+    final fo = File.write("a.png");
+    
+    final pngData = format.png.Tools.build32ARGB(img.header.width, img.header.height, img.argb);
+    new format.png.Writer(fo).write(pngData);
+    // var jpg = new format.jpg.Writer(fo);
+    // jpg.write({
+    //     width: img.header.width,
+    //     height: img.header.height,
+    //     pixels: argb,
+    //     quality: 100,
+    // });
     fo.close();
     trace("ok");
+}
+
+function toARGB(img:webp.Image) {
+    switch img {
+    case Argb(header, pix): 
+        return { header: header, argb: pix };
+    case YCbCrA(header, y, ystride, cb, cr, cstride, a, astride):
+        final width = header.width;
+        final height = header.height;
+        final argb = Bytes.alloc(width * height * 4);
+
+        for (row in 0...height) {
+            for (col in 0...width) {
+                final yIndex = row * ystride + col;
+                final cbCrIndex = (row >> 1) * cstride + (col >> 1);
+
+                final Y = y.get(yIndex) & 0xFF;
+                final Cb = (cb.get(cbCrIndex) & 0xFF) - 128;
+                final Cr = (cr.get(cbCrIndex) & 0xFF) - 128;
+
+                var R = Y + (1.402 * Cr);
+                var G = Y - (0.344136 * Cb) - (0.714136 * Cr);
+                var B = Y + (1.772 * Cb);
+
+                R = Math.round(Math.max(0, Math.min(255, R)));
+                G = Math.round(Math.max(0, Math.min(255, G)));
+                B = Math.round(Math.max(0, Math.min(255, B)));
+
+                final rgbaIndex = (row * width + col) * 4;
+                argb.set(rgbaIndex, a?.get(row*astride+col) ?? 0xFF);
+                argb.set(rgbaIndex+1, Std.int(R));
+                argb.set(rgbaIndex+2, Std.int(G));
+                argb.set(rgbaIndex+3, Std.int(B));
+            }
+        }
+        return { header: header, argb: argb };
+    };
 }
 
 function yccToRgb(ycc:YccImage):Bytes {

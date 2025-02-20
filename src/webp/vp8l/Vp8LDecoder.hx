@@ -391,9 +391,7 @@ class Vp8LDecoder {
         
         return {
             pix: pix, 
-            stride: 4 * originalW, 
-            x: 0,
-            y: 0,
+            stride: 4 * originalW,
             width: originalW,
             height: h
         };

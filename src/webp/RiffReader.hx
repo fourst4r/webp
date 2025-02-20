@@ -1,5 +1,6 @@
 package webp;
 
+import haxe.io.BytesInput;
 import haxe.io.Bytes;
 import webp.types.UInt8Vector;
 import haxe.io.Input;
@@ -14,7 +15,7 @@ class RiffReader {
     public var totalLen:Int = 0;
     public var chunkLen:Int = 0;
 
-    public var chunkReader:ChunkReader;
+    public var chunkReader:Input;
     public var buf:UInt8Vector;
     public var padded:Bool;
 
@@ -49,12 +50,12 @@ class RiffReader {
 
     public function next():{chunkID:String, chunkLen:Int, chunkData:Input} {
         // Drain the rest of the previous chunk
-        if (chunkLen != 0) {
-            final got = r.read(chunkLen);
-            if (got.length != chunkLen) {
-                throw "ShortChunkData";
-            }
-        }
+        // if (chunkLen != 0) {
+        //     final got = r.read(chunkLen);
+        //     if (got.length != chunkLen) {
+        //         throw "ShortChunkData";
+        //     }
+        // }
         chunkReader = null;
 
         if (padded) {
@@ -86,7 +87,11 @@ class RiffReader {
         }
 
         padded = (chunkLen & 1) == 1;
-        chunkReader = new ChunkReader(this);
+
+        // chunkReader = new ChunkReader(this);
+        final chunk = r.read(chunkLen);
+        chunkReader = new BytesInput(chunk);
+
         return {chunkID: chunkID, chunkLen: chunkLen, chunkData: chunkReader};
     }
 }
