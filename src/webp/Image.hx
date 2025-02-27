@@ -3,9 +3,14 @@ package webp;
 import haxe.io.Bytes;
 import webp.FrameHeader;
 
-enum Image {
+typedef Image = {
+    header:FrameHeader,
+    data:ImageData,
+}
+
+enum ImageData {
     /** YCbCr is the format of lossy WebP, with optional (non-premultiplied) alpha. **/
-    YCbCrA(header:FrameHeader, y:Bytes, ystride:Int, cb:Bytes, cr:Bytes, cstride:Int, ?a:Bytes, ?astride:Int);
+    YCbCrA(y:Bytes, ystride:Int, cb:Bytes, cr:Bytes, cstride:Int, ?a:Bytes, ?astride:Int);
     /** Argb (non-premultiplied) is the format of lossless WebP. **/
-    Argb(header:FrameHeader, pix:Bytes);
+    Argb(pix:Bytes, stride:Int);
 }

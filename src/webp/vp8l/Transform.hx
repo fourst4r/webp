@@ -191,13 +191,17 @@ function inverseCrossColor(t:Transform, pix:Bytes, h:Int):Bytes {
     var greenToRed:Int = 0, greenToBlue:Int = 0, redToBlue:Int = 0;
     var p:Int = 0, mask:Int = (1 << t.bits) - 1, tilesPerRow:Int = nTiles(t.oldWidth, t.bits);
     
+    function uint8ToInt8(x: Int): Int {
+        return (x & 0xFF) >= 0x80 ? (x & 0xFF) - 0x100 : (x & 0xFF);
+    }
+
     for (y in 0...h) {
         var q:Int = 4 * ((y >> t.bits) * tilesPerRow);
         for (x in 0...t.oldWidth) {
             if ((x & mask) == 0) {
-                redToBlue = t.pix.get(q + 0);
-                greenToBlue = t.pix.get(q + 1);
-                greenToRed = t.pix.get(q + 2);
+                redToBlue = uint8ToInt8(t.pix.get(q + 0));
+                greenToBlue = uint8ToInt8(t.pix.get(q + 1));
+                greenToRed = uint8ToInt8(t.pix.get(q + 2));
                 q += 4;
             }
 
@@ -205,9 +209,9 @@ function inverseCrossColor(t:Transform, pix:Bytes, h:Int):Bytes {
             var green:Int = pix.get(p + 1);
             var blue:Int = pix.get(p + 2);
 
-            red += ((greenToRed * green) >> 5) & 0xFF;
-            blue += ((greenToBlue * green) >> 5) & 0xFF;
-            blue += ((redToBlue * red) >> 5) & 0xFF;
+            red += ((greenToRed * uint8ToInt8(green)) >>> 5);
+            blue += ((greenToBlue * uint8ToInt8(green)) >>> 5);
+            blue = (blue & 0xff) + ((redToBlue * uint8ToInt8(red)) >>> 5);
 
             pix.set(p + 0, red);
             pix.set(p + 2, blue);
@@ -270,14 +274,14 @@ function inverseColorIndexing(t:Transform, pix:Bytes, h:Int):Bytes {
             dst.set(d + 3, t.pix.get(i + 3));
             d += 4;
 
-            v >>= bitsPerPixel;
+            v >>>= bitsPerPixel;
         }
     }
     return dst;
 }
 
 function avg2(a:Int, b:Int):Int {
-    return Std.int((a + b) / 2);
+    return Std.int((a + b) / 2) & 0xff;
 }
 
 function clampAddSubtractFull(a:Int, b:Int, c:Int):Int {

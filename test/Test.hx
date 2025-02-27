@@ -42,37 +42,34 @@ class TrackedInput extends haxe.io.Input {
 
 function main() {
     trace(Sys.getCwd());
-    final fi = File.read("test/a.webp");
+    final fi = File.read("test/5ll.webp");
     // final img = WebPDecoder.decode(new TrackedInput(fi)).image;
     final img = WebPDecoder.decode(new TrackedInput(fi));
     fi.close();
 
-    final img = toARGB(img);
-        // toARGB(img);
-    // var rgba = yccToRgba(img);
+    toARGB(img);
 
-    final fo = File.write("a.png");
+    final fo = File.write("5ll.png");
     
-    final pngData = format.png.Tools.build32ARGB(img.header.width, img.header.height, img.argb);
-    new format.png.Writer(fo).write(pngData);
-    // var jpg = new format.jpg.Writer(fo);
-    // jpg.write({
-    //     width: img.header.width,
-    //     height: img.header.height,
-    //     pixels: argb,
-    //     quality: 100,
-    // });
-    fo.close();
+    switch (img.data) {
+    case Argb(pix, stride):
+        final h = Std.int(pix.length/stride);
+        final w = Std.int(stride/4);
+        final pngData = format.png.Tools.build32ARGB(w, h, pix);
+        new format.png.Writer(fo).write(pngData);
+        fo.close(); 
+    default:
+    }
+    
     trace("ok");
 }
 
 function toARGB(img:webp.Image) {
-    switch img {
-    case Argb(header, pix): 
-        return { header: header, argb: pix };
-    case YCbCrA(header, y, ystride, cb, cr, cstride, a, astride):
-        final width = header.width;
-        final height = header.height;
+    switch img.data {
+    case Argb(pix, stride): // nothing to do 
+    case YCbCrA(y, ystride, cb, cr, cstride, a, astride):
+        final width = img.header.width;
+        final height = img.header.height;
         final argb = Bytes.alloc(width * height * 4);
 
         for (row in 0...height) {
@@ -99,7 +96,8 @@ function toARGB(img:webp.Image) {
                 argb.set(rgbaIndex+3, Std.int(B));
             }
         }
-        return { header: header, argb: argb };
+        
+        img.data = Argb(argb, img.header.width*4);
     };
 }
 

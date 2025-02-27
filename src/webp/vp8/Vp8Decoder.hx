@@ -192,14 +192,13 @@ class Vp8Decoder {
         mbh = (frameHeader.height + 0x0f) >> 4;
 
         segmentHeader = {
-            prob: new UInt8Vector(nSegmentProb),//[0xff, 0xff, 0xff],
+            prob: UInt8Vector.filled(nSegmentProb, 0xff),
             filterStrength: new Int8Vector(nSegment),
             quantizer: new Int8Vector(nSegment),
             useSegment: false,
             updateMap: false,
             relativeDelta: false,
         };
-        for (i in 0...segmentHeader.prob.length) segmentHeader.prob[i] = 0xff;
 
         tokenProb = defaultTokenProb;
         segment = 0;
@@ -214,8 +213,6 @@ class Vp8Decoder {
         }
         
         var m = YccImage.blank(16 * mbw, 16 * mbh);
-        // TODO: impl subimage
-        // img = m;
         img = m.subImage(0, 0, frameHeader.width, frameHeader.height);
         perMBFilterParams = [];
         upMB = [];

@@ -126,7 +126,7 @@ class HTree {
         }
     }
 
-    public function next(d:Vp8LDecoder):Null<Int> {
+    public function next(d:Vp8LDecoder):Int {
         function slowPath(n) {
             while (nodes[n].children != leafNode) {
                 if (d.nBits == 0) {

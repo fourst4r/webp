@@ -17,4 +17,10 @@ abstract UInt8Vector(Bytes) from Bytes {
     public inline function set(i:Int, value:Int) {
         this.set(i, value);
     }
+
+    public static inline function filled(size:Int, value:Int) {
+        final b = Bytes.alloc(size);
+        b.fill(0, size, value);
+        return b;
+    }
 }

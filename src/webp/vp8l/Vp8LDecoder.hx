@@ -218,7 +218,7 @@ class Vp8LDecoder {
             ccBits = read(4);
             if (ccBits < 1 || ccBits > 11) throw "Invalid color cache parameters";
             ccShift = 32 - ccBits;
-            ccEntries = new Vector(1 << ccBits);
+            ccEntries = new Vector(1 << ccBits, 0);
         }
         
         var huffmanData = decodeHuffmanGroups(w, h, topLevel, ccBits);
@@ -246,7 +246,9 @@ class Vp8LDecoder {
                 var i = 4 * (tilesPerRow * (y >> hBits) + (x >> hBits));
                 hg = hGroups[(hPix.get(i) << 8) | hPix.get(i + 1)];
             }
-            
+            // if (p >= 23200) {
+            //     trace("here");
+            // }
             var green = hg[huffGreen].next(this);
             
             if (green < nLiteralCodes) {
@@ -258,7 +260,7 @@ class Vp8LDecoder {
                 pix.set(p++, green);
                 pix.set(p++, blue);
                 pix.set(p++, alpha);
-                
+                var hex = StringTools.hex;
                 x++;
                 if (x == w) { 
                     x = 0; 
@@ -280,10 +282,16 @@ class Vp8LDecoder {
                     throw "Invalid LZ77 parameters";
                 
                 // TODO: use pix.blit for optimization
-                while (p < pEnd) pix.set(p++, pix.get(q++));
-                
+                while (p < pEnd) {
+                    // if (p >= 23200)
+                    //     trace("hre");
+                    pix.set(p++, pix.get(q++));
+                }
                 x += length;
-                while (x >= w) { x -= w; y++; }
+                while (x >= w) { 
+                    x -= w; 
+                    y++; 
+                }
                 lookupHG = hMask != 0;
                 
             } else {
@@ -292,7 +300,7 @@ class Vp8LDecoder {
                 final colorCacheMultiplier = 0x1e35a7bd;
                 while (cachedP < p) {
                     var argb = (pix.get(cachedP) << 16) | (pix.get(cachedP + 1) << 8) | (pix.get(cachedP + 2)) | (pix.get(cachedP + 3) << 24);
-                    ccEntries[(argb * colorCacheMultiplier) >> ccShift] = argb;
+                    ccEntries[(argb * colorCacheMultiplier) >>> ccShift] = argb;
                     cachedP += 4;
                 }
                 
@@ -300,16 +308,28 @@ class Vp8LDecoder {
                 if (green >= ccEntries.length) throw "Invalid color cache index";
                 
                 var argb = ccEntries[green];
-                pix.set(p++, (argb >> 16) & 0xFF);
-                pix.set(p++, (argb >> 8) & 0xFF);
+                pix.set(p++, (argb >>> 16) & 0xFF);
+                pix.set(p++, (argb >>> 8) & 0xFF);
                 pix.set(p++, argb & 0xFF);
-                pix.set(p++, (argb >> 24) & 0xFF);
+                pix.set(p++, (argb >>> 24) & 0xFF);
                 
                 x++;
-                if (x == w) { x = 0; y++; }
+                if (x == w) { 
+                    x = 0; 
+                    y++; 
+                }
                 lookupHG = hMask != 0 && (x & hMask) == 0;
             }
         }
+        // if (ccEntries != null) {
+        //     trace("starting print "+ccEntries.length);
+        //     var i = 0;
+        //     for (e in ccEntries) {
+        //         Sys.print("0x"+StringTools.hex(e, 8) + ",");
+        //         i++;
+        //     }
+        //     trace("did "+i);
+        // }
         return pix;
     }
 
@@ -326,15 +346,11 @@ class Vp8LDecoder {
     public static function decodeHeader(r: Input): {decoder: Vp8LDecoder, w: Int, h: Int} {
         var d = new Vp8LDecoder(r);
         var magic = d.read(8);
-        if (magic == null || magic != 0x2f) {
+        if (magic != 0x2f) {
             throw("vp8l: invalid header");
         }
-        var width = d.read(14);
-        if (width == null) throw("Read error");
-        var height = d.read(14);
-        if (height == null) throw("Read error");
-        width++;
-        height++;
+        var width = d.read(14) + 1;
+        var height = d.read(14) + 1;
         d.read(1); // Read and ignore the hasAlpha hint
         if (d.read(3) != 0) {
             throw("vp8l: invalid version");
@@ -362,9 +378,6 @@ class Vp8LDecoder {
             var dt = d.decodeTransform(w, h);
             final t = dt.t;
             w = dt.newWidth;
-            if (t == null) {
-                return null;
-            }
 
             if (transformsSeen.exists(t.transformType)) {
                 throw "vp8l: repeated transform";
@@ -377,18 +390,24 @@ class Vp8LDecoder {
 
         // Decode the transformed pixels.
         var pix = d.decodePix(w, h, 0, true);
-        if (pix == null) {
-            return null;
-        }
 
+        
         // Apply the inverse transformations.
         var i = nTransforms-1;
         while (i >= 0) {
             var t = transforms[i];
             pix = webp.vp8l.Transform.inverseTransforms[cast t.transformType](t, pix, h);
+            
+            final fo = sys.io.File.write('pix$i.bin');
+            fo.write(pix);
+            fo.close();
+            
             i--;
         }
         
+        
+
+
         return {
             pix: pix, 
             stride: 4 * originalW,
@@ -397,11 +416,3 @@ class Vp8LDecoder {
         };
     }
 }
-
-
-
-function decodePix(w: Int, h: Int, depth: Int, flag: Bool): Bytes {
-    return Bytes.alloc(w * h * depth);
-}
-
-

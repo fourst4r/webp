@@ -9,17 +9,6 @@ import webp.vp8.Vp8Decoder;
 
 
 
-// typedef Image = {
-//     header:FrameHeader,
-//     y:Bytes,
-//     ystride:Int, 
-//     cb:Bytes, 
-//     cr:Bytes,
-//     cstride:Int,
-//     ?a:Bytes,
-//     ?astride:Int,
-// }
-
 class WebPDecoder {
     public static function decode(input:Input, configOnly:Bool = false):Image {
         var riffReader = new RiffReader(input);
@@ -60,11 +49,6 @@ class WebPDecoder {
 
                     if (configOnly) {
                         throw "Unimplemented";
-                        // return {
-                        //     // colorModel: ColorModel.YCbCr,
-                        //     width: frameHeader.width,
-                        //     height: frameHeader.height
-                        // };
                     }
 
                     var img = vp8Decoder.decodeFrame();
@@ -80,16 +64,45 @@ class WebPDecoder {
                     //     astride: alphaStride
                     // };
                     
-                    return YCbCrA(header, img.Y, img.YStride, img.Cb, img.Cr, img.CStride, alpha, alphaStride);
+                    return {
+                        header: header,
+                        data: YCbCrA(img.Y, img.YStride, img.Cb, img.Cr, img.CStride, alpha, alphaStride)
+                    };
 
                 case "VP8L":
-                    // if (wantAlpha || alpha != null) 
+                    if (wantAlpha || alpha != null) 
                         throw "Invalid format";
 
                     // if (configOnly) {
                     //     return VP8LDecoder.decodeConfig(chunk.data);
                     // }
-                    // return { image: VP8LDecoder.decode(chunk.data) };
+                    
+                    final img = Vp8LDecoder.decode(chunk.chunkData);
+                    final pix = img.pix;
+                    // var fo = sys.io.File.write("pix.bin");
+                    // fo.write(pix);
+                    // fo.close();
+                    var i = 0;
+                    while (i < pix.length) {
+                        // Extract RGBA channels
+                        final r = pix.get(i);
+                        final g = pix.get(i + 1);
+                        final b = pix.get(i + 2);
+                        final a = pix.get(i + 3);
+                
+                        // Reorder to ARGB
+                        pix.set(i, a);
+                        pix.set(i + 1, r);
+                        pix.set(i + 2, g);
+                        pix.set(i + 3, b);
+
+                        i += 4;
+                    }
+
+                    return { 
+                        header: null,
+                        data: Argb(img.pix, img.stride)
+                    };
 
                 case "VP8X":
                     if (seenVP8X) 
@@ -159,9 +172,6 @@ class WebPDecoder {
 
                 // Decode VP8L compressed alpha values
                 var alphaImage = Vp8LDecoder.decode(concatInput);
-                if (alphaImage == null) {
-                    throw "Failed to decode VP8L";
-                }
 
                 // Extract alpha values from the green channel of the image
                 var pix = alphaImage.pix; // Assuming pix is an array of bytes (ARGB format)
