@@ -47,10 +47,6 @@ class WebPDecoder {
                     vp8Decoder.init(chunk.chunkData, chunk.chunkLen);
                     var header = vp8Decoder.decodeFrameHeader();
 
-                    if (configOnly) {
-                        throw "Unimplemented";
-                    }
-
                     var img = vp8Decoder.decodeFrame();
                     
                     // return {
@@ -72,16 +68,11 @@ class WebPDecoder {
                 case "VP8L":
                     if (wantAlpha || alpha != null) 
                         throw "Invalid format";
-
-                    // if (configOnly) {
-                    //     return VP8LDecoder.decodeConfig(chunk.data);
-                    // }
                     
                     final img = Vp8LDecoder.decode(chunk.chunkData);
                     final pix = img.pix;
-                    // var fo = sys.io.File.write("pix.bin");
-                    // fo.write(pix);
-                    // fo.close();
+                    
+                    // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format)
                     var i = 0;
                     while (i < pix.length) {
                         // Extract RGBA channels
@@ -121,14 +112,22 @@ class WebPDecoder {
                     widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
                     heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
 
-                    if (configOnly) {
-                        throw "unimplemented";
-                        // return {
-                        //     colorModel: hasAlpha ? ColorModel.NYCbCrA : ColorModel.YCbCr,
-                        //     width: widthMinusOne + 1,
-                        //     height: heightMinusOne + 1
-                        // };
-                    }
+                case "ANIM":
+                    final d = chunk.chunkData;
+                    final bgColor = d.readInt32();
+                    final loopCount = d.readUInt16();
+
+                case "ANMF":
+                    final d = chunk.chunkData;
+                    final x = d.readUInt24();
+                    final y = d.readUInt24();
+                    final widthMinusOne = d.readUInt24();
+                    final heightMinusOne = d.readUInt24();
+                    final frameDurationMs = d.readUInt24();
+                    final flags = d.readByte();
+                    final disposal = flags & 1;
+                    final blending = flags & 2;
+
                 default:
                     throw "Unimplemented chunk type: " + chunk.chunkID;
             }
