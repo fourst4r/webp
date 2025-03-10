@@ -42,14 +42,14 @@ class TrackedInput extends haxe.io.Input {
 
 function main() {
     trace(Sys.getCwd());
-    final fi = File.read("test/1x.webp");
+    final fi = File.read("test/5.webp");
     // final img = WebPDecoder.decode(new TrackedInput(fi)).image;
     final img = WebPDecoder.decode(new TrackedInput(fi));
     fi.close();
 
     toARGB(img);
 
-    final fo = File.write("1x.png");
+    final fo = File.write("5.png");
     
     switch (img.data) {
     case Argb(pix, stride):

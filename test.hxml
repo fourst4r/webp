@@ -1,0 +1,6 @@
+--library format
+--library utest
+--class-path src
+--class-path test
+--main TestAll
+--interp

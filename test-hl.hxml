@@ -1,0 +1,7 @@
+--library format
+--library utest
+--class-path src
+--class-path test
+--main TestAll
+--hl bin/test.hl
+--cmd hl bin/test.hl

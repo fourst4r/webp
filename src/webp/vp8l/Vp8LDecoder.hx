@@ -398,9 +398,9 @@ class Vp8LDecoder {
             var t = transforms[i];
             pix = webp.vp8l.Transform.inverseTransforms[cast t.transformType](t, pix, h);
             
-            final fo = sys.io.File.write('pix$i.bin');
-            fo.write(pix);
-            fo.close();
+            // final fo = sys.io.File.write('pix$i.bin');
+            // fo.write(pix);
+            // fo.close();
             
             i--;
         }

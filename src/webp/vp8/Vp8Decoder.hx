@@ -200,7 +200,21 @@ class Vp8Decoder {
             relativeDelta: false,
         };
 
-        tokenProb = defaultTokenProb;
+        // Deep copy defaultTokenProb...
+        tokenProb = [];
+        for (i in 0...defaultTokenProb.length) {
+            tokenProb[i] = [];
+            for (j in 0...defaultTokenProb[i].length) {
+                tokenProb[i][j] = [];
+                for (k in 0...defaultTokenProb[i][j].length) {
+                    tokenProb[i][j][k] = [];
+                    for (l in 0...defaultTokenProb[i][j][k].length) {
+                        tokenProb[i][j][k][l] = defaultTokenProb[i][j][k][l];
+                    }
+                }
+            }
+        }
+        
         segment = 0;
         return frameHeader;
     }
@@ -359,7 +373,8 @@ class Vp8Decoder {
 
     public function decodeFrame():YccImage {
         ensureImg();
-        if (!parseOtherHeaders()) return null;
+        if (!parseOtherHeaders()) 
+            return null;
 
         // Reconstruct the rows
         for (mbx in 0...mbw) {
@@ -377,10 +392,12 @@ class Vp8Decoder {
             }
         }
 
-        if (fp.unexpectedEOF) return null;
+        if (fp.unexpectedEOF) 
+            return null;
 
         for (i in 0...nOP) {
-            if (op[i].unexpectedEOF) return null;
+            if (op[i].unexpectedEOF) 
+                return null;
         }
 
         // Apply the loop filter
@@ -542,6 +559,7 @@ class Vp8Decoder {
                 }
 
                 ilevel = max(ilevel, 1);
+                // TODO: both of these assignments should be int8 -> uint8
                 p.ilevel = ilevel;
                 p.level = 2 * level + ilevel;
 
@@ -596,6 +614,15 @@ class Vp8Decoder {
         var n = skipFirstCoeff ? 1 : 0;
         var p = prob[bands[n]][context];
         
+        final pstop = [113, 50, 187, 170, 123, 184, 169, 174, 255, 187, 128];
+        final eq = (function() {
+            for (i in 0...p.length)
+                if (p[i] != pstop[i])
+                    return false;
+            return true;
+        })();
+        // if (eq) 
+        //     trace("ok");
         if (!r.readBit(p[0])) return 0;
         //1,165,230,250,199,191,247,159,255,255,128
         while (n != 16) {
@@ -635,7 +662,7 @@ class Vp8Decoder {
             var c = v * quant[z > 0 ? 1 : 0];
             c = r.readBit(uniformProb) ? -c : c;
             
-            coeff[coeffBase + z] = c;
+            coeff[coeffBase + z] = (c << 16) >> 16;
             
             if (n == 16 || !r.readBit(p[0])) return 1;
         }
@@ -712,8 +739,8 @@ class Vp8Decoder {
         lnzMask |= pack(lnz, 4);
         unzMask |= pack(unz, 4);
         
-        leftMB.nzMask = lnzMask;
-        upMB[mbx].nzMask = unzMask;
+        leftMB.nzMask = lnzMask & 0xFF;
+        upMB[mbx].nzMask = unzMask & 0xFF;
         this.nzDCMask = nzDCMask;
         this.nzACMask = nzACMask;
         
@@ -790,7 +817,6 @@ class Vp8Decoder {
         }
         
         prepareYBR(mbx, mby);
-        // formatMatrix(ybr);
         usePredY16 = fp.readBit(145);
         
         if (usePredY16) {
@@ -816,7 +842,6 @@ class Vp8Decoder {
         }
         
         reconstructMacroblock(mbx, mby);
-        // formatMatrix(ybr);
 
         for (y in 0...16) {
             var i = (mby * img.YStride + mbx) * 16 + y * img.YStride;
