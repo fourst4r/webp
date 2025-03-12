@@ -15,7 +15,7 @@ class Visual extends utest.Test {
     }
 
     function convert(imgName:String) {
-        // trace("convert "+imgName);
+        trace("convert "+imgName);
         final fi = sys.io.File.read("test/"+imgName+".webp");
         var img = webp.WebPDecoder.decode(fi);
         fi.close();

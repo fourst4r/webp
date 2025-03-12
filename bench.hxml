@@ -1,0 +1,23 @@
+--class-path src
+--class-path test
+--main Bench
+
+--each
+--hl .\bin\bench.hl
+
+--next
+--cpp .\bin\cpp
+
+--next
+--jvm bin/bench.jar
+
+--next
+--neko bin/bench.n
+
+--cmd echo -- Benchmarks --
+--cmd echo ^| Target ^| Decode Lossy ^| Decode Lossless
+--cmd echo ^|--------^|--------------^|----------------
+--cmd .\bin\bench.hl
+--cmd .\bin\cpp\Bench.exe
+--cmd java -jar bin/bench.jar
+--cmd neko bin/bench.n

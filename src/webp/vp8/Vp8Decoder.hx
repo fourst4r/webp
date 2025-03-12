@@ -79,7 +79,6 @@ class MB {
 class Vp8Decoder {
     public var r:LimitReader;
     public var scratch:haxe.io.Bytes;
-    public var img:YccImage;
     public var mbw:Int;
     public var mbh:Int;
     public var frameHeader:FrameHeader;
@@ -90,7 +89,6 @@ class Vp8Decoder {
     public var nOP:Int;
     public var quant:Vector<Quant>;
     public var tokenProb:Array<Array<Array<Array<Int>>>>;
-    // public var tokenProb:Vector<Vector<Vector<Vector<Int>>>>;
     public var useSkipProb:Bool;
     public var skipProb:Int;
     public var filterParams:Vector<Vector<FilterParam>>;
@@ -107,6 +105,12 @@ class Vp8Decoder {
     public var coeff:Vector<Int>;
     public var ybr:Vector<Vector<Int>>;
 
+    public var Y:Bytes; // Luma
+    public var Cb:Bytes; // Blue-difference chroma
+    public var Cr:Bytes; // Red-difference chroma
+    public var YStride:Int;
+    public var CStride:Int;
+
     public function new() {
         scratch = haxe.io.Bytes.alloc(8);
         op = new Vector(8);
@@ -114,16 +118,6 @@ class Vp8Decoder {
         for (i in 0...quant.length) quant[i] = new Quant();
 
         tokenProb = [];
-        // tokenProb = new Vector(nPlane);
-        // for (i in 0...tokenProb.length) {
-        //     tokenProb[i] = new Vector(nBand);
-        //     for (j in 0...tokenProb[i].length) {
-        //         tokenProb[i][j] = new Vector(nContext);
-        //         for (k in 0...tokenProb[i][j].length) {
-        //             tokenProb[i][j][k] = new Vector(nProb);
-        //         }
-        //     }
-        // }
 
         filterParams = new Vector(nSegment);
         for (i in 0...filterParams.length) {
@@ -201,6 +195,7 @@ class Vp8Decoder {
         };
 
         // Deep copy defaultTokenProb...
+        // PERF: probably use haxe.Resource? or flattened array + .copy()?
         tokenProb = [];
         for (i in 0...defaultTokenProb.length) {
             tokenProb[i] = [];
@@ -220,14 +215,18 @@ class Vp8Decoder {
     }
 
     function ensureImg():Void {
-        if (img != null && 
-            img.rect.minX == 0 && img.rect.minY == 0 && 
-            img.rect.maxX >= 16 * mbw && img.rect.maxY >= 16 * mbh) {
-            return;
+        if (frameHeader.width > 16 * mbw && frameHeader.height > 16 * mbh) {
+            throw "image size is too small for the data?";
         }
         
-        var m = YccImage.blank(16 * mbw, 16 * mbh);
-        img = m.subImage(0, 0, frameHeader.width, frameHeader.height);
+        final width = mbw*16;
+        final height = mbh*16;
+        YStride = width;
+		CStride = width >> 1;
+		Y = Bytes.alloc(YStride * height);
+		Cb = Bytes.alloc(CStride * (height >> 1));
+		Cr = Bytes.alloc(CStride * (height >> 1));
+
         perMBFilterParams = [];
         upMB = [];
     }
@@ -328,7 +327,7 @@ class Vp8Decoder {
         catch (e) 
                 return false;
 
-        fp = new Partition(firstPartition); // certified
+        fp = new Partition(firstPartition);
 
         if (frameHeader.keyFrame) {
             // Read and ignore color space and pixel clamp values
@@ -337,11 +336,11 @@ class Vp8Decoder {
         }
 
         parseSegmentHeader();
-        parseFilterHeader(); // certified
+        parseFilterHeader(); 
 
         if (!parseOtherPartitions()) return false;
 
-        parseQuant(); // certified
+        parseQuant(); 
 
         if (!frameHeader.keyFrame) {
             // Golden and AltRef frames are only for video
@@ -351,7 +350,7 @@ class Vp8Decoder {
         // Read and ignore refreshLastFrameBuffer bit
         fp.readBit(uniformProb);
 
-        parseTokenProb(); // certified
+        parseTokenProb(); 
         useSkipProb = fp.readBit(uniformProb);
 
         if (useSkipProb) {
@@ -371,7 +370,7 @@ class Vp8Decoder {
                             tokenProb[i][j][k][l] = fp.readUint(uniformProb, 8);
     }
 
-    public function decodeFrame():YccImage {
+    public function decodeFrame() {
         ensureImg();
         if (!parseOtherHeaders()) 
             return null;
@@ -409,7 +408,13 @@ class Vp8Decoder {
             }
         }
 
-        return img;
+        return {
+            Y: Y, 
+            Cb: Cb,
+            Cr: Cr,
+            YStride: YStride,
+            CStride: CStride,
+        };
     }
 
     function parseQuant():Void {
@@ -454,22 +459,22 @@ class Vp8Decoder {
                 if (f.level == 0) continue;
 
                 var l = f.level;
-                var yIndex = Std.int((mby * img.YStride + mbx) * 16);
+                var yIndex = Std.int((mby * YStride + mbx) * 16);
 
-                if (mbx > 0) filter2(img.Y, l + 4, yIndex, img.YStride, 1);
+                if (mbx > 0) filter2(Y, l + 4, yIndex, YStride, 1);
 
                 if (f.inner) {
-                    filter2(img.Y, l, yIndex + 0x4, img.YStride, 1);
-                    filter2(img.Y, l, yIndex + 0x8, img.YStride, 1);
-                    filter2(img.Y, l, yIndex + 0xC, img.YStride, 1);
+                    filter2(Y, l, yIndex + 0x4, YStride, 1);
+                    filter2(Y, l, yIndex + 0x8, YStride, 1);
+                    filter2(Y, l, yIndex + 0xC, YStride, 1);
                 }
 
-                if (mby > 0) filter2(img.Y, l + 4, yIndex, 1, img.YStride);
+                if (mby > 0) filter2(Y, l + 4, yIndex, 1, YStride);
 
                 if (f.inner) {
-                    filter2(img.Y, l, yIndex + Std.int(img.YStride * 0x4), 1, img.YStride);
-                    filter2(img.Y, l, yIndex + Std.int(img.YStride * 0x8), 1, img.YStride);
-                    filter2(img.Y, l, yIndex + Std.int(img.YStride * 0xC), 1, img.YStride);
+                    filter2(Y, l, yIndex + Std.int(YStride * 0x4), 1, YStride);
+                    filter2(Y, l, yIndex + Std.int(YStride * 0x8), 1, YStride);
+                    filter2(Y, l, yIndex + Std.int(YStride * 0xC), 1, YStride);
                 }
             }
         }
@@ -484,35 +489,35 @@ class Vp8Decoder {
                 var l = f.level;
                 var il = f.ilevel;
                 var hl = f.hlevel;
-                var yIndex = Std.int((mby * img.YStride + mbx) * 16);
-                var cIndex = Std.int((mby * img.CStride + mbx) * 8);
+                var yIndex = Std.int((mby * YStride + mbx) * 16);
+                var cIndex = Std.int((mby * CStride + mbx) * 8);
 
                 if (mbx > 0) {
-                    filter246(img.Y, 16, l + 4, il, hl, yIndex, img.YStride, 1, false);
-                    filter246(img.Cb, 8, l + 4, il, hl, cIndex, img.CStride, 1, false);
-                    filter246(img.Cr, 8, l + 4, il, hl, cIndex, img.CStride, 1, false);
+                    filter246(Y, 16, l + 4, il, hl, yIndex, YStride, 1, false);
+                    filter246(Cb, 8, l + 4, il, hl, cIndex, CStride, 1, false);
+                    filter246(Cr, 8, l + 4, il, hl, cIndex, CStride, 1, false);
                 }
 
                 if (f.inner) {
-                    filter246(img.Y, 16, l, il, hl, yIndex + 0x4, img.YStride, 1, true);
-                    filter246(img.Y, 16, l, il, hl, yIndex + 0x8, img.YStride, 1, true);
-                    filter246(img.Y, 16, l, il, hl, yIndex + 0xC, img.YStride, 1, true);
-                    filter246(img.Cb, 8, l, il, hl, cIndex + 0x4, img.CStride, 1, true);
-                    filter246(img.Cr, 8, l, il, hl, cIndex + 0x4, img.CStride, 1, true);
+                    filter246(Y, 16, l, il, hl, yIndex + 0x4, YStride, 1, true);
+                    filter246(Y, 16, l, il, hl, yIndex + 0x8, YStride, 1, true);
+                    filter246(Y, 16, l, il, hl, yIndex + 0xC, YStride, 1, true);
+                    filter246(Cb, 8, l, il, hl, cIndex + 0x4, CStride, 1, true);
+                    filter246(Cr, 8, l, il, hl, cIndex + 0x4, CStride, 1, true);
                 }
 
                 if (mby > 0) {
-                    filter246(img.Y, 16, l + 4, il, hl, yIndex, 1, img.YStride, false);
-                    filter246(img.Cb, 8, l + 4, il, hl, cIndex, 1, img.CStride, false);
-                    filter246(img.Cr, 8, l + 4, il, hl, cIndex, 1, img.CStride, false);
+                    filter246(Y, 16, l + 4, il, hl, yIndex, 1, YStride, false);
+                    filter246(Cb, 8, l + 4, il, hl, cIndex, 1, CStride, false);
+                    filter246(Cr, 8, l + 4, il, hl, cIndex, 1, CStride, false);
                 }
 
                 if (f.inner) {
-                    filter246(img.Y, 16, l, il, hl, yIndex + Std.int(img.YStride * 0x4), 1, img.YStride, true);
-                    filter246(img.Y, 16, l, il, hl, yIndex + Std.int(img.YStride * 0x8), 1, img.YStride, true);
-                    filter246(img.Y, 16, l, il, hl, yIndex + Std.int(img.YStride * 0xC), 1, img.YStride, true);
-                    filter246(img.Cb, 8, l, il, hl, cIndex + Std.int(img.CStride * 0x4), 1, img.CStride, true);
-                    filter246(img.Cr, 8, l, il, hl, cIndex + Std.int(img.CStride * 0x4), 1, img.CStride, true);
+                    filter246(Y, 16, l, il, hl, yIndex + Std.int(YStride * 0x4), 1, YStride, true);
+                    filter246(Y, 16, l, il, hl, yIndex + Std.int(YStride * 0x8), 1, YStride, true);
+                    filter246(Y, 16, l, il, hl, yIndex + Std.int(YStride * 0xC), 1, YStride, true);
+                    filter246(Cb, 8, l, il, hl, cIndex + Std.int(CStride * 0x4), 1, CStride, true);
+                    filter246(Cr, 8, l, il, hl, cIndex + Std.int(CStride * 0x4), 1, CStride, true);
                 }
             }
         }
@@ -591,14 +596,14 @@ class Vp8Decoder {
 			for (x in 7...16) ybr[17][x] = 0x7f;
 			for (x in 23...32) ybr[17][x] = 0x7f;
 		} else {
-			for (i in 0...16) ybr[0][8 + i] =  img.Y.get((16 * mby - 1) * img.YStride + 16 * mbx + i);
-			for (i in 0...8) ybr[17][8 + i] =  img.Cb.get((8 * mby - 1) * img.CStride + 8 * mbx + i);
-			for (i in 0...8) ybr[17][24 + i] = img.Cr.get((8 * mby - 1) * img.CStride + 8 * mbx + i);
+			for (i in 0...16) ybr[0][8 + i] =  Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
+			for (i in 0...8) ybr[17][8 + i] =  Cb.get((8 * mby - 1) * CStride + 8 * mbx + i);
+			for (i in 0...8) ybr[17][24 + i] = Cr.get((8 * mby - 1) * CStride + 8 * mbx + i);
 
 			if (mbx == mbw - 1) {
-				for (i in 16...20) ybr[0][8 + i] = img.Y.get((16 * mby - 1) * img.YStride + 16 * mbx + 15);
+				for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + 15);
 			} else {
-				for (i in 16...20) ybr[0][8 + i] = img.Y.get((16 * mby - 1) * img.YStride + 16 * mbx + i);
+				for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
 			}
 		}
 
@@ -844,29 +849,17 @@ class Vp8Decoder {
         reconstructMacroblock(mbx, mby);
 
         for (y in 0...16) {
-            var i = (mby * img.YStride + mbx) * 16 + y * img.YStride;
-            copy(img.Y, i, ybr[ybrYY + y], ybrYX, 16);
+            var i = (mby * YStride + mbx) * 16 + y * YStride;
+            copy(Y, i, ybr[ybrYY + y], ybrYX, 16);
         }
         
         for (y in 0...8) {
-            var i = (mby * img.CStride + mbx) * 8 + y * img.CStride;
-            copy(img.Cb, i, ybr[ybrBY + y], ybrBX, 8);
-            copy(img.Cr, i, ybr[ybrRY + y], ybrRX, 8);
+            var i = (mby * CStride + mbx) * 8 + y * CStride;
+            copy(Cb, i, ybr[ybrBY + y], ybrBX, 8);
+            copy(Cr, i, ybr[ybrRY + y], ybrRX, 8);
         }
         
         return skip;
-    }
-
-    static function formatMatrix<T>(matrix: Vector<Vector<T>>) {
-        var output = new StringBuf();
-        for (row in matrix) {
-            output.add("| ");
-            for (cell in row) {
-                output.add('${Std.string(cell)} ');
-            }
-            output.add("|\n");
-        }
-        trace(output.toString());
     }
 
     static function copy(dst:Bytes, pos:Int, src:Vector<Int>, srcpos:Int, len:Int):Void {

@@ -390,7 +390,6 @@ class Vp8LDecoder {
 
         // Decode the transformed pixels.
         var pix = d.decodePix(w, h, 0, true);
-
         
         // Apply the inverse transformations.
         var i = nTransforms-1;

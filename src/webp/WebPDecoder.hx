@@ -7,8 +7,6 @@ import haxe.io.Bytes;
 import haxe.io.Input;
 import webp.vp8.Vp8Decoder;
 
-
-
 class WebPDecoder {
     public static function decode(input:Input, configOnly:Bool = false):Image {
         var riffReader = new RiffReader(input);
@@ -48,17 +46,6 @@ class WebPDecoder {
                     var header = vp8Decoder.decodeFrameHeader();
 
                     var img = vp8Decoder.decodeFrame();
-                    
-                    // return {
-                    //     header: header,
-                    //     y: img.Y,
-                    //     ystride: img.YStride,
-                    //     cb: img.Cb,
-                    //     cr: img.Cr,
-                    //     cstride: img.CStride,
-                    //     a: alpha,
-                    //     astride: alphaStride
-                    // };
                     
                     return {
                         header: header,
@@ -134,61 +121,51 @@ class WebPDecoder {
         }
     }
 
-    static function readAlpha(
-        chunkData: Input,
-        widthMinusOne: Int,
-        heightMinusOne: Int,
-        compression: Int
-    ): Bytes {
+    static function readAlpha(chunkData:Input, widthMinusOne:Int, heightMinusOne:Int, compression:Int):Bytes {
         switch (compression) {
-            case 0:
-                var w = widthMinusOne + 1;
-                var h = heightMinusOne + 1;
-                var alpha = Bytes.alloc(w * h);
-                try {
-                    chunkData.readFullBytes(alpha, 0, w * h);
-                } catch (e) {
-                    throw ("Failed to read alpha values: " + e);
-                }
-                return alpha;
+        case 0:
+            final w = widthMinusOne + 1;
+            final h = heightMinusOne + 1;
+            final alpha = Bytes.alloc(w * h);
+            try {
+                chunkData.readFullBytes(alpha, 0, w * h);
+            } catch (e) {
+                throw ("Failed to read alpha values: " + e);
+            }
+            return alpha;
 
-            case 1:
-                // Validate dimensions
-                if (widthMinusOne > 0x3fff || heightMinusOne > 0x3fff) {
-                    throw ("Invalid format: dimensions too large");
-                }
+        case 1:
+            // Validate dimensions
+            if (widthMinusOne > 0x3fff || heightMinusOne > 0x3fff) {
+                throw ("Invalid format: dimensions too large");
+            }
 
-                // Create a synthesized VP8L header
-                var header = Bytes.alloc(5);
-                header.set(0, 0x2f); // VP8L magic number
-                header.set(1, widthMinusOne & 0xff);
-                header.set(2, (widthMinusOne >> 8) | ((heightMinusOne & 0x3f) << 6));
-                header.set(3, (heightMinusOne >> 2) & 0xff);
-                header.set(4, (heightMinusOne >> 10) & 0xff);
+            // Create a synthesized VP8L header
+            var header = Bytes.alloc(5);
+            header.set(0, 0x2f); // VP8L magic number
+            header.set(1, widthMinusOne & 0xff);
+            header.set(2, (widthMinusOne >> 8) | ((heightMinusOne & 0x3f) << 6));
+            header.set(3, (heightMinusOne >> 2) & 0xff);
+            header.set(4, (heightMinusOne >> 10) & 0xff);
 
-                // Combine header and chunk data
-                final concatInput = new ConcatInput(new BytesInput(header), chunkData);
+            // Combine header and chunk data
+            final concatInput = new ConcatInput(new BytesInput(header), chunkData);
 
-                // Decode VP8L compressed alpha values
-                var alphaImage = Vp8LDecoder.decode(concatInput);
+            // Decode VP8L compressed alpha values
+            var alphaImage = Vp8LDecoder.decode(concatInput);
 
-                // Extract alpha values from the green channel of the image
-                var pix = alphaImage.pix; // Assuming pix is an array of bytes (ARGB format)
-                var alpha = Bytes.alloc(Std.int(pix.length / 4));
-                for (i in 0...alpha.length) {
-                    alpha.set(i, pix.get(i * 4 + 1)); // Green channel
-                }
-                return alpha;
+            // Extract alpha values from the green channel of the image
+            var pix = alphaImage.pix; // Assuming pix is an array of bytes (ARGB format)
+            var alpha = Bytes.alloc(Std.int(pix.length / 4));
+            for (i in 0...alpha.length) {
+                alpha.set(i, pix.get(i * 4 + 1)); // Green channel
+            }
+            return alpha;
 
-            default:
-                throw ("Invalid format: unsupported compression type");
+        default:
+            throw ("Invalid format: unsupported compression type");
         }
     }
-
-    // static function readAlpha(input:Input, width:Int, height:Int, method:Int):Bytes {
-    //     // Implementation of alpha decoding
-    //     throw "Not implemented";
-    // }
 
     static function unfilterAlpha(alpha:Bytes, alphaStride:Int, filter:Int):Void {
         if (alpha.length == 0 || alphaStride == 0) {
@@ -196,53 +173,53 @@ class WebPDecoder {
         }
         
         switch (filter) {
-            case 1: // Horizontal filter
-                for (i in 1...alphaStride) {
-                    alpha.set(i, alpha.get(i) + alpha.get(i - 1));
+        case 1: // Horizontal filter
+            for (i in 1...alphaStride) {
+                alpha.set(i, alpha.get(i) + alpha.get(i - 1));
+            }
+            var i = alphaStride;
+            while (i < alpha.length) {
+                // The first column is equivalent to the vertical filter.
+                alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
+                
+                for (j in 1...alphaStride) {
+                    alpha.set(i + j, alpha.get(i + j) + alpha.get(i + j - 1));
                 }
-                var i = alphaStride;
-                while (i < alpha.length) {
-                    // The first column is equivalent to the vertical filter.
-                    alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
-                    
-                    for (j in 1...alphaStride) {
-                        alpha.set(i + j, alpha.get(i + j) + alpha.get(i + j - 1));
-                    }
-                    i += alphaStride;
-                }
-    
-            case 2: // Vertical filter
-                // The first row is equivalent to the horizontal filter.
-                for (i in 1...alphaStride) {
-                    alpha.set(i, alpha.get(i) + alpha.get(i - 1));
-                }
-                for (i in alphaStride...alpha.length) {
-                    alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
-                }
-    
-            case 3: // Gradient filter
-                // The first row is equivalent to the horizontal filter.
-                for (i in 1...alphaStride) {
-                    alpha.set(i, alpha.get(i) + alpha.get(i - 1));
+                i += alphaStride;
+            }
+
+        case 2: // Vertical filter
+            // The first row is equivalent to the horizontal filter.
+            for (i in 1...alphaStride) {
+                alpha.set(i, alpha.get(i) + alpha.get(i - 1));
+            }
+            for (i in alphaStride...alpha.length) {
+                alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
+            }
+
+        case 3: // Gradient filter
+            // The first row is equivalent to the horizontal filter.
+            for (i in 1...alphaStride) {
+                alpha.set(i, alpha.get(i) + alpha.get(i - 1));
+            }
+
+            var i = alphaStride;
+            while (i < alpha.length) {
+                // The first column is equivalent to the vertical filter.
+                alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
+                
+                // The interior is predicted on the three top/left pixels.
+                for (j in 1...alphaStride) {
+                    final c = alpha.get(i + j - alphaStride - 1);
+                    final b = alpha.get(i + j - alphaStride);
+                    final a = alpha.get(i + j - 1);
+                    var x = a + b - c;
+                    x = x < 0 ? 0 : (x > 255 ? 255 : x);
+                    alpha.set(i + j, alpha.get(i + j) + x);
                 }
 
-                var i = alphaStride;
-                while (i < alpha.length) {
-                    // The first column is equivalent to the vertical filter.
-                    alpha.set(i, alpha.get(i) + alpha.get(i - alphaStride));
-                    
-                    // The interior is predicted on the three top/left pixels.
-                    for (j in 1...alphaStride) {
-                        var c = alpha.get(i + j - alphaStride - 1);
-                        var b = alpha.get(i + j - alphaStride);
-                        var a = alpha.get(i + j - 1);
-                        var x = a + b - c;
-                        x = x < 0 ? 0 : (x > 255 ? 255 : x);
-                        alpha.set(i + j, alpha.get(i + j) + x);
-                    }
-
-                    i += alphaStride;
-                }
+                i += alphaStride;
+            }
         }
     }
 }
