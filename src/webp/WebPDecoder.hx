@@ -1,5 +1,8 @@
 package webp;
 
+import haxe.ds.List;
+import webp.FrameHeader;
+import format.tools.BufferInput;
 import haxe.io.BytesInput;
 import webp.types.ConcatInput;
 import webp.vp8l.Vp8LDecoder;
@@ -7,119 +10,266 @@ import haxe.io.Bytes;
 import haxe.io.Input;
 import webp.vp8.Vp8Decoder;
 
+enum Chunk {
+    CAlph(alpha:Bytes, stride:Int);
+    CVp8(header:FrameHeader, y:Bytes, ystride:Int, cb:Bytes, cr:Bytes, cstride:Int);
+    CVp8l(header:Dynamic, argb:Bytes, stride:Int);
+    CVp8x(hasAlpha:Bool, widthMinus1:Int, heightMinus1:Int);
+    CAnim(data:Bytes);
+    CAnmf(data:Bytes);
+    CUnknown(id:String, data:Bytes);
+}
+
 class WebPDecoder {
-    public static function decode(input:Input, configOnly:Bool = false):Image {
-        var riffReader = new RiffReader(input);
-        // if (riffReader.formType != WEBP) 
-        //     throw "Invalid format";
+    var _i:Input;
+    var _totalLen:Int;
 
-        var alpha:Bytes = null;
-        var alphaStride:Int = 0;
-        var wantAlpha:Bool = false;
-        var seenVP8X:Bool = false;
-        var widthMinusOne:Int = 0;
-        var heightMinusOne:Int = 0;
-        var buf = Bytes.alloc(10);
+    var alpha:Bytes = null;
+    var alphaStride:Int = 0;
+    var wantAlpha:Bool = false;
+    var seenVP8X:Bool = false;
+    var widthMinusOne:Int = 0;
+    var heightMinusOne:Int = 0;
+    var buf = Bytes.alloc(10);
 
-        while (true) {
-            var chunk = riffReader.next();
-            if (chunk == null) 
-                throw "Invalid format";
-
-            switch (chunk.chunkID) {
-                case "ALPH":
-                    if (!wantAlpha) throw "Invalid format";
-                    wantAlpha = false;
-
-                    // Read the Pre-processing | Filter | Compression byte.
-                    final flags = chunk.chunkData.readByte();
-                    alpha = readAlpha(chunk.chunkData, widthMinusOne, heightMinusOne, flags & 0x03);
-                    alphaStride = widthMinusOne+1;
-                    unfilterAlpha(alpha, alphaStride, (flags >> 2) & 0x03);
-
-                case "VP8 ":
-                    if (wantAlpha || chunk.chunkLen < 0) 
-                        throw "Invalid format";
-
-                    var vp8Decoder = new Vp8Decoder();
-                    vp8Decoder.init(chunk.chunkData, chunk.chunkLen);
-                    var header = vp8Decoder.decodeFrameHeader();
-
-                    var img = vp8Decoder.decodeFrame();
-                    
-                    return {
-                        header: header,
-                        data: YCbCrA(img.Y, img.YStride, img.Cb, img.Cr, img.CStride, alpha, alphaStride)
-                    };
-
-                case "VP8L":
-                    if (wantAlpha || alpha != null) 
-                        throw "Invalid format";
-                    
-                    final img = Vp8LDecoder.decode(chunk.chunkData);
-                    final pix = img.pix;
-                    
-                    // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format)
-                    var i = 0;
-                    while (i < pix.length) {
-                        // Extract RGBA channels
-                        final r = pix.get(i);
-                        final g = pix.get(i + 1);
-                        final b = pix.get(i + 2);
-                        final a = pix.get(i + 3);
-                
-                        // Reorder to ARGB
-                        pix.set(i, a);
-                        pix.set(i + 1, r);
-                        pix.set(i + 2, g);
-                        pix.set(i + 3, b);
-
-                        i += 4;
-                    }
-
-                    return { 
-                        header: null,
-                        data: Argb(img.pix, img.stride)
-                    };
-
-                case "VP8X":
-                    if (seenVP8X) 
-                        throw "Invalid format";
-                    seenVP8X = true;
-
-                    if (chunk.chunkLen != 10) 
-                        throw "Invalid format";
-
-                    chunk.chunkData.readBytes(buf, 0, 10);
-
-                    var flags = buf.get(0);
-                    var hasAlpha = (flags & 0x10) != 0;
-                    wantAlpha = hasAlpha;
-
-                    widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
-                    heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
-
-                case "ANIM":
-                    final d = chunk.chunkData;
-                    final bgColor = d.readInt32();
-                    final loopCount = d.readUInt16();
-
-                case "ANMF":
-                    final d = chunk.chunkData;
-                    final x = d.readUInt24();
-                    final y = d.readUInt24();
-                    final widthMinusOne = d.readUInt24();
-                    final heightMinusOne = d.readUInt24();
-                    final frameDurationMs = d.readUInt24();
-                    final flags = d.readByte();
-                    final disposal = flags & 1;
-                    final blending = flags & 2;
-
-                default:
-                    throw "Unimplemented chunk type: " + chunk.chunkID;
-            }
-        }
+    public function new(i:Input) {
+        this._i = i;
     }
+
+    function readRiffHeader() {
+        if (_i.readString(4) != "RIFF")
+            throw "Missing RIFF chunk header";
+        final chunkLen = _i.readInt32();
+        if (chunkLen < 4)
+            throw "Short chunk data";
+        final idk = _i.readInt32();
+        _totalLen = chunkLen - 4;
+    }
+
+    function readRiffChunk() {
+        if (_totalLen <= 0)
+            return null;
+		final id = _i.readString(4);
+		final dataLen = _i.readInt32();
+		final data = _i.read(dataLen);
+        _totalLen -= dataLen + 8;
+        final bi = new BytesInput(data);
+		return switch id {
+		case "ALPH":
+            final a = readAlph(bi); 
+            CAlph(a.alpha, a.alphaStride);
+		case "VP8 ":
+            final v = readVp8(bi);
+            CVp8(v.header, v.y, v.ystride, v.cb, v.cr, v.cstride);
+		case "VP8L": 
+            final v = readVp8l(bi);
+            CVp8l(v.header, v.argb, v.stride);
+		case "VP8X":
+            final x = readVp8x(bi);
+            CVp8x(x.hasAlpha, x.widthMinus1, x.heightMinus1);
+        // case "ANIM": CAnim(readAnim(bi));
+        // case "ANMF": CAnmf(readAnmf(bi));
+		default: 
+            CUnknown(id, data);
+		}
+	}
+
+    function readAlph(i:Input) {
+        // Read the Pre-processing | Filter | Compression byte.
+        final flags = i.readByte();
+        alpha = readAlpha(i, widthMinusOne, heightMinusOne, flags & 0x03);
+        alphaStride = widthMinusOne+1;
+        unfilterAlpha(alpha, alphaStride, (flags >> 2) & 0x03);
+        return {
+            alpha: alpha,
+            alphaStride: alphaStride
+        };
+    }
+
+    function readVp8(i:BytesInput) {
+        final vp8 = new Vp8Decoder(i);
+        final header = vp8.decodeFrameHeader();
+        final img = vp8.decodeFrame();
+        return {
+            header: header,
+            y: img.Y,
+            ystride: img.YStride,
+            cb: img.Cb,
+            cr: img.Cr,
+            cstride: img.CStride,
+        };
+    }
+
+    function readVp8l(i:Input) {
+        final img = Vp8LDecoder.decode(i);
+        final pix = img.pix;
+        // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format)
+        var i = 0;
+        while (i < pix.length) {
+            // Extract RGBA channels
+            final r = pix.get(i);
+            final g = pix.get(i + 1);
+            final b = pix.get(i + 2);
+            final a = pix.get(i + 3);
+            // Reorder to ARGB
+            pix.set(i, a);
+            pix.set(i + 1, r);
+            pix.set(i + 2, g);
+            pix.set(i + 3, b);
+
+            i += 4;
+        }
+        return { 
+            header: null,
+            argb: img.pix,
+            stride: img.stride,
+            // data: Argb(img.pix, img.stride)
+        };
+    }
+
+    function readVp8x(i:Input) {
+        final buf = i.read(10);
+
+        var flags = buf.get(0);
+        var hasAlpha = (flags & 0x10) != 0;
+        // wantAlpha = hasAlpha;
+
+        final widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
+        final heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
+        return {
+            hasAlpha: hasAlpha,
+            widthMinus1: widthMinusOne,
+            heightMinus1: heightMinusOne
+        };
+    }
+
+    function readAnim(i:Input) {
+        
+    }
+
+    function readAnmf(i:Input) {
+
+    }
+
+    public static function decode(i:Input) {
+        final chunks = [];
+        final webp = new WebPDecoder(i);
+        webp.readRiffHeader();
+        while (true) {
+            final chunk = webp.readRiffChunk();
+            if (chunk == null)
+                break;
+            chunks.push(chunk);
+        }
+        return chunks;
+    }
+
+    // public static function decode(input:Input, configOnly:Bool = false):Image {
+    //     var riffReader = new RiffReader(input);
+    //     // if (riffReader.formType != WEBP) 
+    //     //     throw "Invalid format";
+
+        
+
+    //     while (true) {
+    //         var chunk = riffReader.next();
+    //         if (chunk == null) 
+    //             throw "Invalid format";
+
+    //         switch (chunk.chunkID) {
+    //             case "ALPH":
+    //                 if (!wantAlpha) throw "Invalid format";
+    //                 wantAlpha = false;
+
+    //                 // Read the Pre-processing | Filter | Compression byte.
+    //                 final flags = chunk.chunkData.readByte();
+    //                 alpha = readAlpha(chunk.chunkData, widthMinusOne, heightMinusOne, flags & 0x03);
+    //                 alphaStride = widthMinusOne+1;
+    //                 unfilterAlpha(alpha, alphaStride, (flags >> 2) & 0x03);
+
+    //             case "VP8 ":
+    //                 if (wantAlpha || chunk.chunkLen < 0) 
+    //                     throw "Invalid format";
+
+    //                 var vp8Decoder = new Vp8Decoder();
+    //                 vp8Decoder.init(chunk.chunkData, chunk.chunkLen);
+    //                 var header = vp8Decoder.decodeFrameHeader();
+
+    //                 var img = vp8Decoder.decodeFrame();
+                    
+    //                 return {
+    //                     header: header,
+    //                     data: YCbCrA(img.Y, img.YStride, img.Cb, img.Cr, img.CStride, alpha, alphaStride)
+    //                 };
+
+    //             case "VP8L":
+    //                 if (wantAlpha || alpha != null) 
+    //                     throw "Invalid format";
+                    
+    //                 final img = Vp8LDecoder.decode(chunk.chunkData);
+    //                 final pix = img.pix;
+                    
+    //                 // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format)
+    //                 var i = 0;
+    //                 while (i < pix.length) {
+    //                     // Extract RGBA channels
+    //                     final r = pix.get(i);
+    //                     final g = pix.get(i + 1);
+    //                     final b = pix.get(i + 2);
+    //                     final a = pix.get(i + 3);
+                
+    //                     // Reorder to ARGB
+    //                     pix.set(i, a);
+    //                     pix.set(i + 1, r);
+    //                     pix.set(i + 2, g);
+    //                     pix.set(i + 3, b);
+
+    //                     i += 4;
+    //                 }
+
+    //                 return { 
+    //                     header: null,
+    //                     data: Argb(img.pix, img.stride)
+    //                 };
+
+    //             case "VP8X":
+    //                 if (seenVP8X) 
+    //                     throw "Invalid format";
+    //                 seenVP8X = true;
+
+    //                 if (chunk.chunkLen != 10) 
+    //                     throw "Invalid format";
+
+    //                 chunk.chunkData.readBytes(buf, 0, 10);
+
+    //                 var flags = buf.get(0);
+    //                 var hasAlpha = (flags & 0x10) != 0;
+    //                 wantAlpha = hasAlpha;
+
+    //                 widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
+    //                 heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
+
+    //             case "ANIM":
+    //                 final d = chunk.chunkData;
+    //                 final bgColor = d.readInt32();
+    //                 final loopCount = d.readUInt16();
+
+    //             case "ANMF":
+    //                 final d = chunk.chunkData;
+    //                 final x = d.readUInt24();
+    //                 final y = d.readUInt24();
+    //                 final widthMinusOne = d.readUInt24();
+    //                 final heightMinusOne = d.readUInt24();
+    //                 final frameDurationMs = d.readUInt24();
+    //                 final flags = d.readByte();
+    //                 final disposal = flags & 1;
+    //                 final blending = flags & 2;
+
+    //             default:
+    //                 throw "Unimplemented chunk type: " + chunk.chunkID;
+    //         }
+    //     }
+    // }
 
     static function readAlpha(chunkData:Input, widthMinusOne:Int, heightMinusOne:Int, compression:Int):Bytes {
         switch (compression) {

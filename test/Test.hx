@@ -46,7 +46,7 @@ function main() {
     // final img = WebPDecoder.decode(new TrackedInput(fi)).image;
     final img = WebPDecoder.decode(new TrackedInput(fi));
     fi.close();
-
+var img = null;
     toARGB(img);
 
     final fo = File.write("5.png");

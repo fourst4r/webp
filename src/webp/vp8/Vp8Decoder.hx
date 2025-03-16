@@ -77,7 +77,8 @@ class MB {
 }
 
 class Vp8Decoder {
-    public var r:LimitReader;
+    // public var r:LimitReader;
+    public var r:BytesInput;
     public var scratch:haxe.io.Bytes;
     public var mbw:Int;
     public var mbh:Int;
@@ -111,7 +112,8 @@ class Vp8Decoder {
     public var YStride:Int;
     public var CStride:Int;
 
-    public function new() {
+    public function new(r:BytesInput) {
+        this.r = r;
         scratch = haxe.io.Bytes.alloc(8);
         op = new Vector(8);
         quant = new Vector(nSegment);
@@ -148,13 +150,8 @@ class Vp8Decoder {
         };
     }
 
-    public function init(r:Input, n:Int):Void {
-        this.r = new LimitReader(r, n);
-    }
-
     public function decodeFrameHeader():FrameHeader {
-        var b = scratch.sub(0, 3);
-        r.readFull(b);
+        var b = r.read(3);
 
         frameHeader = {
             keyFrame: (b.get(0) & 1) == 0,
@@ -171,9 +168,8 @@ class Vp8Decoder {
             return frameHeader;
         }
 
-        b = scratch.sub(0, 7);
-        r.readFull(b);
-
+        b = r.read(7);
+        
         if (b.get(0) != 0x9d || b.get(1) != 0x01 || b.get(2) != 0x2a) {
             throw "vp8: invalid format";
         }
@@ -294,12 +290,13 @@ class Vp8Decoder {
         nOP = 1 << fp.readUint(uniformProb, 2);
 
         var n = 3 * (nOP - 1);
-        partLens[nOP - 1] = r.n - n;
+        partLens[nOP - 1] = (r.length - r.position) - n;
         if (partLens[nOP - 1] < 0) return false;
 
         if (n > 0) {
-            var buf = Bytes.alloc(n);
-            r.readFull(buf);
+            // var buf = Bytes.alloc(n);
+            // r.readFull(buf);
+            var buf = r.read(n);
             for (i in 0...nOP - 1) {
                 var pl = buf.get(3 * i) | (buf.get(3 * i + 1) << 8) | (buf.get(3 * i + 2) << 16);
                 if (pl > partLens[nOP - 1]) return false;
@@ -310,8 +307,9 @@ class Vp8Decoder {
 
         if (1 << 24 <= partLens[nOP - 1]) return false;
 
-        var buf = Bytes.alloc(r.n);
-        r.readFull(buf);
+        // var buf = Bytes.alloc(r.n);
+        // r.readFull(buf);
+        var buf = r.read(r.length - r.position);
         for (i in 0...nOP) {
             if (i >= partLens.length) break;
             op[i] = new Partition(buf.sub(0, partLens[i]));
@@ -321,11 +319,12 @@ class Vp8Decoder {
 
     function parseOtherHeaders():Bool {
         // Initialize and parse the first partition
-        var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
-        try 
-            r.readFull(firstPartition) 
-        catch (e) 
-                return false;
+        // var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
+        // try 
+        //     r.readFull(firstPartition) 
+        // catch (e) 
+        //         return false;
+        var firstPartition = r.read(frameHeader.firstPartitionLen);
 
         fp = new Partition(firstPartition);
 
