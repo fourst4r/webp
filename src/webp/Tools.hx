@@ -7,7 +7,7 @@ class Tools {
         switch img.data {
         case Argb(pix, stride): 
             return img;
-        case YCbCrA(y, ystride, cb, cr, cstride, a, astride):
+        case Yuv420(y, ystride, cb, cr, cstride, a):
             final width = img.header.width;
             final height = img.header.height;
             final argb = Bytes.alloc(width * height * 4);
@@ -30,7 +30,7 @@ class Tools {
                     B = Math.round(Math.max(0, Math.min(255, B)));
 
                     final rgbaIndex = (row * width + col) * 4;
-                    argb.set(rgbaIndex, a?.get(row*astride+col) ?? 0xFF);
+                    argb.set(rgbaIndex, a?.get(row * ystride + col) ?? 0xFF);
                     argb.set(rgbaIndex+1, Std.int(R));
                     argb.set(rgbaIndex+2, Std.int(G));
                     argb.set(rgbaIndex+3, Std.int(B));
@@ -41,6 +41,8 @@ class Tools {
                 header: Reflect.copy(img.header),
                 data: Argb(argb, img.header.width*4)
             };
+        case Anim(_):
+            return img;
         };
     }
 }

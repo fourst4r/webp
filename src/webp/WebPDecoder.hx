@@ -52,6 +52,11 @@ class WebPDecoder {
 		final id = _i.readString(4);
 		final dataLen = _i.readInt32();
 		final data = _i.read(dataLen);
+        // Chunks are padded to even size; consume the pad byte when present.
+        if ((dataLen & 1) == 1) {
+            _i.readByte();
+            _totalLen -= 1;
+        }
         _totalLen -= dataLen + 8;
         final bi = new BytesInput(data);
 		return switch id {
@@ -131,6 +136,8 @@ class WebPDecoder {
             header: null,
             argb: img.pix,
             stride: img.stride,
+            width: img.width,
+            height: img.height,
             // data: Argb(img.pix, img.stride)
         };
     }
@@ -158,18 +165,22 @@ class WebPDecoder {
 
     }
 
-    public static function decode(i:Input) {
+    public static function decode(i:Input):Image {
         final webp = new WebPDecoder(i);
+        var lossy = null;
+        var lossless = null;
+        var alpha:Bytes = null;
         for (chunk in webp.decodeChunks(i)) {
             switch (chunk) {
             case CVp8x(data):
                 webp.readVp8x(new BytesInput(data));
             case CAlph(data):
-                webp.readAlph(new BytesInput(data));
+                final a = webp.readAlph(new BytesInput(data));
+                alpha = a.alpha;
             case CVp8(data):
-                webp.readVp8(new BytesInput(data));
+                lossy = webp.readVp8(new BytesInput(data));
             case CVp8l(data):
-                webp.readVp8l(new BytesInput(data));
+                lossless = webp.readVp8l(new BytesInput(data));
             case CAnim(data):
                 webp.readAnim(new BytesInput(data));
             case CAnmf(data):
@@ -178,9 +189,31 @@ class WebPDecoder {
                 // ignore
             }
         }
-        return {
-
+        if (lossless != null) {
+            final header = lossless.header != null ? lossless.header : {
+                keyFrame: true,
+                versionNumber: 0,
+                showFrame: true,
+                firstPartitionLen: 0,
+                width: lossless.width,
+                height: lossless.height,
+                xScale: 0,
+                yScale: 0
+            };
+            return {
+                header: header,
+                data: Argb(lossless.argb, lossless.stride)
+            };
         }
+
+        if (lossy != null) {
+            return {
+                header: lossy.header,
+                data: Yuv420(lossy.y, lossy.ystride, lossy.cb, lossy.cr, lossy.cstride, alpha)
+            };
+        }
+
+        throw "Invalid format: no VP8/VP8L chunk found";
     }
 
     function decodeChunks(i:Input):Array<Chunk> {
