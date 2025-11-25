@@ -102,7 +102,7 @@ class WebPDecoder {
     function readVp8l(i:Input) {
         final img = Vp8LDecoder.decode(i);
         final pix = img.pix;
-        // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format)
+        // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format). It was done that way due to a limitation in the Go version.
         var i = 0;
         while (i < pix.length) {
             // Extract RGBA channels
@@ -124,7 +124,6 @@ class WebPDecoder {
             stride: img.stride,
             width: img.width,
             height: img.height,
-            // data: Argb(img.pix, img.stride)
         };
     }
 
@@ -136,11 +135,6 @@ class WebPDecoder {
         
         widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
         heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
-        // return {
-        //     hasAlpha: hasAlpha,
-        //     widthMinus1: widthMinusOne,
-        //     heightMinus1: heightMinusOne
-        // };
     }
 
     function readAnim(i:Input) {

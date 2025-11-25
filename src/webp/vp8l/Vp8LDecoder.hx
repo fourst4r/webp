@@ -390,9 +390,6 @@ class Vp8LDecoder {
             i--;
         }
         
-        
-
-
         return {
             pix: pix, 
             stride: 4 * originalW,
