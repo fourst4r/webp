@@ -77,7 +77,6 @@ class MB {
 }
 
 class Vp8Decoder {
-    // public var r:LimitReader;
     public var r:BytesInput;
     public var scratch:haxe.io.Bytes;
     public var mbw:Int;
@@ -286,17 +285,15 @@ class Vp8Decoder {
 
     function parseOtherPartitions():Bool {
         final maxNOP = 8;
-        var partLens = new Vector(maxNOP);
+        final partLens = new Vector(maxNOP);
         nOP = 1 << fp.readUint(uniformProb, 2);
 
-        var n = 3 * (nOP - 1);
+        final n = 3 * (nOP - 1);
         partLens[nOP - 1] = (r.length - r.position) - n;
         if (partLens[nOP - 1] < 0) return false;
 
         if (n > 0) {
-            // var buf = Bytes.alloc(n);
-            // r.readFull(buf);
-            var buf = r.read(n);
+            final buf = r.read(n);
             for (i in 0...nOP - 1) {
                 var pl = buf.get(3 * i) | (buf.get(3 * i + 1) << 8) | (buf.get(3 * i + 2) << 16);
                 if (pl > partLens[nOP - 1]) return false;
@@ -307,9 +304,7 @@ class Vp8Decoder {
 
         if (1 << 24 <= partLens[nOP - 1]) return false;
 
-        // var buf = Bytes.alloc(r.n);
-        // r.readFull(buf);
-        var buf = r.read(r.length - r.position);
+        final buf = r.read(r.length - r.position);
         for (i in 0...nOP) {
             if (i >= partLens.length) break;
             op[i] = new Partition(buf.sub(0, partLens[i]));
@@ -319,13 +314,7 @@ class Vp8Decoder {
 
     function parseOtherHeaders():Bool {
         // Initialize and parse the first partition
-        // var firstPartition = Bytes.alloc(frameHeader.firstPartitionLen);
-        // try 
-        //     r.readFull(firstPartition) 
-        // catch (e) 
-        //         return false;
-        var firstPartition = r.read(frameHeader.firstPartitionLen);
-
+        final firstPartition = r.read(frameHeader.firstPartitionLen);
         fp = new Partition(firstPartition);
 
         if (frameHeader.keyFrame) {
@@ -625,10 +614,9 @@ class Vp8Decoder {
                     return false;
             return true;
         })();
-        // if (eq) 
-        //     trace("ok");
+        
         if (!r.readBit(p[0])) return 0;
-        //1,165,230,250,199,191,247,159,255,255,128
+        
         while (n != 16) {
             n++;
             if (!r.readBit(p[1])) {
@@ -943,13 +931,13 @@ class Vp8Decoder {
     function inverseDCT4(y:Int, x:Int, coeffBase:Int):Void {
         final c1:Int = 85627; // 65536 * cos(pi/8) * sqrt(2)
         final c2:Int = 35468; // 65536 * sin(pi/8) * sqrt(2)
-        var m:Array<Array<Int>> = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        final m:Array<Array<Int>> = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
     
         for (i in 0...4) {
-            var a:Int = Std.int(coeff[coeffBase+0]) + Std.int(coeff[coeffBase+8]);
-            var b:Int = Std.int(coeff[coeffBase+0]) - Std.int(coeff[coeffBase+8]);
-            var c:Int = (Std.int(coeff[coeffBase+4])*c2 >> 16) - (Std.int(coeff[coeffBase+12])*c1 >> 16);
-            var d:Int = (Std.int(coeff[coeffBase+4])*c1 >> 16) + (Std.int(coeff[coeffBase+12])*c2 >> 16);
+            final a:Int = Std.int(coeff[coeffBase+0]) + Std.int(coeff[coeffBase+8]);
+            final b:Int = Std.int(coeff[coeffBase+0]) - Std.int(coeff[coeffBase+8]);
+            final c:Int = (Std.int(coeff[coeffBase+4])*c2 >> 16) - (Std.int(coeff[coeffBase+12])*c1 >> 16);
+            final d:Int = (Std.int(coeff[coeffBase+4])*c1 >> 16) + (Std.int(coeff[coeffBase+12])*c2 >> 16);
             
             m[i][0] = a + d;
             m[i][1] = b + c;
@@ -959,11 +947,11 @@ class Vp8Decoder {
         }
     
         for (j in 0...4) {
-            var dc:Int = m[0][j] + 4;
-            var a:Int = dc + m[2][j];
-            var b:Int = dc - m[2][j];
-            var c:Int = (m[1][j]*c2 >> 16) - (m[3][j]*c1 >> 16);
-            var d:Int = (m[1][j]*c1 >> 16) + (m[3][j]*c2 >> 16);
+            final dc:Int = m[0][j] + 4;
+            final a:Int = dc + m[2][j];
+            final b:Int = dc - m[2][j];
+            final c:Int = (m[1][j]*c2 >> 16) - (m[3][j]*c1 >> 16);
+            final d:Int = (m[1][j]*c1 >> 16) + (m[3][j]*c2 >> 16);
             
             ybr[y+j][x+0] = clip8(Std.int(ybr[y+j][x+0]) + (a+d >> 3));
             ybr[y+j][x+1] = clip8(Std.int(ybr[y+j][x+1]) + (b+c >> 3));
@@ -973,7 +961,7 @@ class Vp8Decoder {
     }
     
     function inverseDCT4DCOnly(y:Int, x:Int, coeffBase:Int):Void {
-        var dc:Int = (Std.int(coeff[coeffBase+0]) + 4) >> 3;
+        final dc:Int = (Std.int(coeff[coeffBase+0]) + 4) >> 3;
         for (j in 0...4) {
             for (i in 0...4) {
                 ybr[y+j][x+i] = clip8(Std.int(ybr[y+j][x+i]) + dc);
@@ -996,13 +984,13 @@ class Vp8Decoder {
     }
     
     function inverseWHT16():Void {
-        var m:Array<Int> = [for (_ in 0...16) 0];
+        final m:Array<Int> = [for (_ in 0...16) 0];
         
         for (i in 0...4) {
-            var a0:Int = Std.int(coeff[384+0+i]) + Std.int(coeff[384+12+i]);
-            var a1:Int = Std.int(coeff[384+4+i]) + Std.int(coeff[384+8+i]);
-            var a2:Int = Std.int(coeff[384+4+i]) - Std.int(coeff[384+8+i]);
-            var a3:Int = Std.int(coeff[384+0+i]) - Std.int(coeff[384+12+i]);
+            final a0:Int = Std.int(coeff[384+0+i]) + Std.int(coeff[384+12+i]);
+            final a1:Int = Std.int(coeff[384+4+i]) + Std.int(coeff[384+8+i]);
+            final a2:Int = Std.int(coeff[384+4+i]) - Std.int(coeff[384+8+i]);
+            final a3:Int = Std.int(coeff[384+0+i]) - Std.int(coeff[384+12+i]);
             
             m[0+i] = a0 + a1;
             m[8+i] = a0 - a1;
@@ -1012,11 +1000,11 @@ class Vp8Decoder {
     
         var out:Int = 0;
         for (i in 0...4) {
-            var dc:Int = m[0+i*4] + 3;
-            var a0:Int = dc + m[3+i*4];
-            var a1:Int = m[1+i*4] + m[2+i*4];
-            var a2:Int = m[1+i*4] - m[2+i*4];
-            var a3:Int = dc - m[3+i*4];
+            final dc:Int = m[0+i*4] + 3;
+            final a0:Int = dc + m[3+i*4];
+            final a1:Int = m[1+i*4] + m[2+i*4];
+            final a2:Int = m[1+i*4] - m[2+i*4];
+            final a3:Int = dc - m[3+i*4];
             
             coeff[out+0] = Std.int((a0 + a1) >> 3);
             coeff[out+16] = Std.int((a3 + a2) >> 3);

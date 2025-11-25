@@ -1,5 +1,6 @@
 --class-path src
 --class-path test
+--define analyzer-optimize
 --main Bench
 
 --each

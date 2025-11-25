@@ -31,64 +31,45 @@ class RiffReader {
         }
 
         final chunkLen = buf.getInt32(4);
-
-        // return newListReader(u32(buf, 4), r);
     
         if (chunkLen < 4) {
             throw "ShortChunkData";
         }
-        // var z = new Reader(chunkData);
         r.read(4);
         this.buf = buf;
-        // z.buf = chunkData.read(new haxe.io.Bytes(4)).toArray();
-        // if (z.buf == null || z.buf.length < 4) {
-        //     return {listType: null, data: null, err: "ShortChunkData"};
-        // }
         totalLen = chunkLen - 4;
-        // return {listType: new FourCC([z.buf[0], z.buf[1], z.buf[2], z.buf[3]]), data: z, err: null};
     }
 
     public function next():{chunkID:String, chunkLen:Int, chunkData:Input} {
-        // Drain the rest of the previous chunk
-        // if (chunkLen != 0) {
-        //     final got = r.read(chunkLen);
-        //     if (got.length != chunkLen) {
-        //         throw "ShortChunkData";
-        //     }
-        // }
         chunkReader = null;
 
         if (padded) {
-            if (totalLen == 0) {
+            if (totalLen == 0)
                 throw "ListSubchunkTooLong";
-            }
             totalLen--;
-            if (r.readByte() == -1) {
+            if (r.readByte() == -1)
                 throw "MissingPaddingByte";
-            }
         }
 
-        if (totalLen == 0) {
+        if (totalLen == 0)
             throw "EOF";
-        }
+        
 
         final chunkHeaderSize = 8;
-        if (totalLen < chunkHeaderSize) {
+        if (totalLen < chunkHeaderSize)
             throw "ShortChunkHeader";
-        }
+        
         totalLen -= chunkHeaderSize;
         buf = r.read(chunkHeaderSize);
 
         final chunkID = buf.getString(0, 4);
-        chunkLen = buf.getInt32(4); //(buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7];
+        chunkLen = buf.getInt32(4);
         
-        if (chunkLen > totalLen) {
+        if (chunkLen > totalLen) 
             throw "ListSubchunkTooLong";
-        }
 
         padded = (chunkLen & 1) == 1;
 
-        // chunkReader = new ChunkReader(this);
         final chunk = r.read(chunkLen);
         chunkReader = new BytesInput(chunk);
 
@@ -107,8 +88,6 @@ class ChunkReader extends Input {
         final b = z.r.readByte();
         z.totalLen--;
         z.chunkLen--;
-        if (z.chunkLen == 0)
-            trace("ok");
         return b;
     }
 
@@ -116,14 +95,10 @@ class ChunkReader extends Input {
         if (z.chunkReader != this)
             throw "Stale reader";
 
-        var n = Std.int(Math.min(z.chunkLen, p.length));
-        var bytesRead = z.r.readBytes(p, 0, n);
-        // var bytesRead = n; z.r.readFullBytes(p, 0, n);
+        final n = Std.int(Math.min(z.chunkLen, p.length));
+        final bytesRead = z.r.readBytes(p, 0, n);
         z.totalLen -= bytesRead;
         z.chunkLen -= bytesRead;
-        // if (bytesRead < n) {
-        //     throw "UnexpectedEOF";
-        // }
         return bytesRead;
     }
 
@@ -132,17 +107,4 @@ class ChunkReader extends Input {
         z.totalLen -= len;
         z.chunkLen -= len;
     }
-
-    // public function read(p:haxe.io.Bytes):Int {
-    //     if (z.chunkReader != this) return 0;
-
-    //     var n = Std.int(Math.min(z.chunkLen, p.length));
-    //     var bytesRead = z.r.readBytes(p, 0, n);
-    //     z.totalLen -= bytesRead;
-    //     z.chunkLen -= bytesRead;
-    //     if (bytesRead < n) {
-    //         throw "UnexpectedEOF";
-    //     }
-    //     return bytesRead;
-    // }
 } 

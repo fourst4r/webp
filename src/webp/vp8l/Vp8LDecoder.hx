@@ -257,7 +257,6 @@ class Vp8LDecoder {
                 pix.set(p++, green);
                 pix.set(p++, blue);
                 pix.set(p++, alpha);
-                var hex = StringTools.hex;
                 x++;
                 if (x == w) { 
                     x = 0; 
