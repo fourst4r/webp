@@ -3,7 +3,7 @@ import haxe.Timer;
 
 final lossy = sys.io.File.getBytes("test/1.webp");
 final lossless = sys.io.File.getBytes("test/1ll.webp");
-final target = #if hl "hl" #elseif cpp "cpp" #elseif jvm "jvm" #elseif neko "neko" #else "???" #end;
+final target = #if hl "hl" #elseif cpp "cpp" #elseif jvm "jvm" #else "???" #end;
 
 function main() {
     Sys.print('| $target | ' + benchmark(decodeLossy, 50));

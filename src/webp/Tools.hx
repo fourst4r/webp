@@ -11,6 +11,7 @@ class Tools {
             final width = img.header.width;
             final height = img.header.height;
             final argb = Bytes.alloc(width * height * 4);
+            final alphaStride = width; // Alpha plane is tightly packed to canvas width.
 
             for (row in 0...height) {
                 for (col in 0...width) {
@@ -30,7 +31,7 @@ class Tools {
                     B = Math.round(Math.max(0, Math.min(255, B)));
 
                     final rgbaIndex = (row * width + col) * 4;
-                    argb.set(rgbaIndex, a?.get(row * ystride + col) ?? 0xFF);
+                    argb.set(rgbaIndex, a?.get(row * alphaStride + col) ?? 0xFF);
                     argb.set(rgbaIndex+1, Std.int(R));
                     argb.set(rgbaIndex+2, Std.int(G));
                     argb.set(rgbaIndex+3, Std.int(B));

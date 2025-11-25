@@ -246,9 +246,6 @@ class Vp8LDecoder {
                 var i = 4 * (tilesPerRow * (y >> hBits) + (x >> hBits));
                 hg = hGroups[(hPix.get(i) << 8) | hPix.get(i + 1)];
             }
-            // if (p >= 23200) {
-            //     trace("here");
-            // }
             var green = hg[huffGreen].next(this);
             
             if (green < nLiteralCodes) {
@@ -283,8 +280,6 @@ class Vp8LDecoder {
                 
                 // TODO: use pix.blit for optimization
                 while (p < pEnd) {
-                    // if (p >= 23200)
-                    //     trace("hre");
                     pix.set(p++, pix.get(q++));
                 }
                 x += length;
@@ -321,15 +316,6 @@ class Vp8LDecoder {
                 lookupHG = hMask != 0 && (x & hMask) == 0;
             }
         }
-        // if (ccEntries != null) {
-        //     trace("starting print "+ccEntries.length);
-        //     var i = 0;
-        //     for (e in ccEntries) {
-        //         Sys.print("0x"+StringTools.hex(e, 8) + ",");
-        //         i++;
-        //     }
-        //     trace("did "+i);
-        // }
         return pix;
     }
 
@@ -396,11 +382,6 @@ class Vp8LDecoder {
         while (i >= 0) {
             var t = transforms[i];
             pix = webp.vp8l.Transform.inverseTransforms[cast t.transformType](t, pix, h);
-            
-            // final fo = sys.io.File.write('pix$i.bin');
-            // fo.write(pix);
-            // fo.close();
-            
             i--;
         }
         
