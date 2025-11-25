@@ -1,6 +1,7 @@
 import utest.Assert;
 import utest.Async;
 import haxe.io.Bytes;
+import webp.Image;
 
 class Visual extends utest.Test {
   

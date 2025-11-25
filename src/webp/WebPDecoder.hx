@@ -11,10 +11,10 @@ import haxe.io.Input;
 import webp.vp8.Vp8Decoder;
 
 enum Chunk {
-    CAlph(alpha:Bytes, stride:Int);
-    CVp8(header:FrameHeader, y:Bytes, ystride:Int, cb:Bytes, cr:Bytes, cstride:Int);
-    CVp8l(header:Dynamic, argb:Bytes, stride:Int);
-    CVp8x(hasAlpha:Bool, widthMinus1:Int, heightMinus1:Int);
+    CAlph(data:Bytes);
+    CVp8(data:Bytes);
+    CVp8l(data:Bytes);
+    CVp8x(data:Bytes);
     CAnim(data:Bytes);
     CAnmf(data:Bytes);
     CUnknown(id:String, data:Bytes);
@@ -23,14 +23,14 @@ enum Chunk {
 class WebPDecoder {
     var _i:Input;
     var _totalLen:Int;
+    var _isLossy:Bool = false;
 
-    var alpha:Bytes = null;
-    var alphaStride:Int = 0;
-    var wantAlpha:Bool = false;
-    var seenVP8X:Bool = false;
+    // var alpha:Bytes = null;
+    // var alphaStride:Int = 0;
+    var hasAlpha:Bool = false;
     var widthMinusOne:Int = 0;
     var heightMinusOne:Int = 0;
-    var buf = Bytes.alloc(10);
+    // var buf = Bytes.alloc(10);
 
     public function new(i:Input) {
         this._i = i;
@@ -56,17 +56,24 @@ class WebPDecoder {
         final bi = new BytesInput(data);
 		return switch id {
 		case "ALPH":
-            final a = readAlph(bi); 
-            CAlph(a.alpha, a.alphaStride);
+            // final a = readAlph(bi); 
+            CAlph(data);
 		case "VP8 ":
-            final v = readVp8(bi);
-            CVp8(v.header, v.y, v.ystride, v.cb, v.cr, v.cstride);
+            // final v = readVp8(bi);
+            // CVp8(v.header, v.y, v.ystride, v.cb, v.cr, v.cstride);
+            CVp8(data);
 		case "VP8L": 
-            final v = readVp8l(bi);
-            CVp8l(v.header, v.argb, v.stride);
+            // final v = readVp8l(bi);
+            // CVp8l(v.header, v.argb, v.stride);
+            CVp8l(data);
 		case "VP8X":
-            final x = readVp8x(bi);
-            CVp8x(x.hasAlpha, x.widthMinus1, x.heightMinus1);
+            // final x = readVp8x(bi);
+            // CVp8x(x.hasAlpha, x.widthMinus1, x.heightMinus1);
+            CVp8x(data);
+        case "ANIM":
+            CAnim(data);
+        case "ANMF":
+            CAnmf(data);
         // case "ANIM": CAnim(readAnim(bi));
         // case "ANMF": CAnmf(readAnmf(bi));
 		default: 
@@ -77,8 +84,8 @@ class WebPDecoder {
     function readAlph(i:Input) {
         // Read the Pre-processing | Filter | Compression byte.
         final flags = i.readByte();
-        alpha = readAlpha(i, widthMinusOne, heightMinusOne, flags & 0x03);
-        alphaStride = widthMinusOne+1;
+        final alpha = readAlpha(i, widthMinusOne, heightMinusOne, flags & 0x03);
+        final alphaStride = widthMinusOne+1;
         unfilterAlpha(alpha, alphaStride, (flags >> 2) & 0x03);
         return {
             alpha: alpha,
@@ -90,6 +97,7 @@ class WebPDecoder {
         final vp8 = new Vp8Decoder(i);
         final header = vp8.decodeFrameHeader();
         final img = vp8.decodeFrame();
+        _isLossy = true;
         return {
             header: header,
             y: img.Y,
@@ -131,16 +139,15 @@ class WebPDecoder {
         final buf = i.read(10);
 
         var flags = buf.get(0);
-        var hasAlpha = (flags & 0x10) != 0;
-        // wantAlpha = hasAlpha;
-
-        final widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
-        final heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
-        return {
-            hasAlpha: hasAlpha,
-            widthMinus1: widthMinusOne,
-            heightMinus1: heightMinusOne
-        };
+        hasAlpha = (flags & 0x10) != 0;
+        
+        widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
+        heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
+        // return {
+        //     hasAlpha: hasAlpha,
+        //     widthMinus1: widthMinusOne,
+        //     heightMinus1: heightMinusOne
+        // };
     }
 
     function readAnim(i:Input) {
@@ -152,11 +159,35 @@ class WebPDecoder {
     }
 
     public static function decode(i:Input) {
-        final chunks = [];
         final webp = new WebPDecoder(i);
-        webp.readRiffHeader();
+        for (chunk in webp.decodeChunks(i)) {
+            switch (chunk) {
+            case CVp8x(data):
+                webp.readVp8x(new BytesInput(data));
+            case CAlph(data):
+                webp.readAlph(new BytesInput(data));
+            case CVp8(data):
+                webp.readVp8(new BytesInput(data));
+            case CVp8l(data):
+                webp.readVp8l(new BytesInput(data));
+            case CAnim(data):
+                webp.readAnim(new BytesInput(data));
+            case CAnmf(data):
+                webp.readAnmf(new BytesInput(data));
+            case CUnknown(id, data):
+                // ignore
+            }
+        }
+        return {
+
+        }
+    }
+
+    function decodeChunks(i:Input):Array<Chunk> {
+        readRiffHeader();
+        final chunks = [];        
         while (true) {
-            final chunk = webp.readRiffChunk();
+            final chunk = readRiffChunk();
             if (chunk == null)
                 break;
             chunks.push(chunk);
