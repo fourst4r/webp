@@ -6,8 +6,8 @@ final lossless = sys.io.File.getBytes("test/1ll.webp");
 final target = #if hl "hl" #elseif cpp "cpp" #elseif jvm "jvm" #else "???" #end;
 
 function main() {
-    Sys.print('| $target | ' + benchmark(decodeLossy, 50));
-    Sys.println(' | ' + benchmark(decodeLossless, 50));
+    Sys.print('| $target | ' + benchmark(decodeLossy, 100));
+    Sys.println(' | ' + benchmark(decodeLossless, 100));
 }
 
 function decodeLossy() {

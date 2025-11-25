@@ -278,9 +278,15 @@ class Vp8LDecoder {
                 if (p < 0 || q < 0 || pEnd > pix.length || qEnd > pix.length)
                     throw "Invalid LZ77 parameters";
                 
-                // TODO: use pix.blit for optimization
-                while (p < pEnd) {
-                    pix.set(p++, pix.get(q++));
+                if (dist >= length) {
+                    // Non-overlapping: safe to bulk copy.
+                    pix.blit(p, pix, q, 4 * length);
+                    p = pEnd;
+                } else {
+                    // Overlapping: progressive copy so newly written bytes are reused.
+                    while (p < pEnd) {
+                        pix.set(p++, pix.get(q++));
+                    }
                 }
                 x += length;
                 while (x >= w) { 
