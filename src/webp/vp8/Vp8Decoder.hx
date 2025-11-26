@@ -1,19 +1,9 @@
-// Copyright 2011 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// Package vp8 implements a decoder for the VP8 lossy image format.
-// The VP8 specification is RFC 6386.
 package webp.vp8;
 
-// This file implements the top-level decoding algorithm.
-
-import webp.types.UInt8Vector;
-import webp.types.Int8Vector;
-import haxe.io.Input;
 import haxe.io.Bytes;
 import haxe.io.BytesInput;
 import haxe.ds.Vector;
+import webp.Image;
 import webp.vp8.Token;
 import webp.vp8.Quant;
 import webp.vp8.Filter;
@@ -21,24 +11,8 @@ import webp.vp8.Partition;
 import webp.vp8.Reconstruct;
 import webp.vp8.Pred;
 import webp.vp8.PredFunc;
-
-class LimitReader {
-    public var r:Input;
-    public var n:Int;
-
-    public function new(r:Input, n:Int) {
-        this.r = r;
-        this.n = n;
-    }
-
-    public function readFull(p:haxe.io.Bytes):Void {
-        if (p.length > n) {
-            throw "Unexpected EOF";
-        }
-        r.readFullBytes(p, 0, p.length);
-        n -= p.length;
-    }
-}
+import webp.types.Int8Vector;
+import webp.types.UInt8Vector;
 
 final nSegment = 4;
 final nSegmentProb = 3;

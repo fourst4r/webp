@@ -12,7 +12,7 @@ class Partition {
     public var nBits:Int = 0;
     public var unexpectedEOF:Bool = false;
 
-    static var lutShift:Array<Int> = [
+    static var _lutShift:Array<Int> = [
         7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -23,7 +23,7 @@ class Partition {
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     ];
 
-    static var lutRangeM1:Array<Int> = [
+    static var _lutRangeM1:Array<Int> = [
         127, 
 		127, 191, 
 		127, 159, 191, 223,
@@ -75,8 +75,8 @@ class Partition {
 		}
 
 		if (rangeM1 < 127) {
-			var shift = lutShift[rangeM1];
-			rangeM1 = lutRangeM1[rangeM1];
+			var shift = _lutShift[rangeM1];
+			rangeM1 = _lutRangeM1[rangeM1];
 			bits <<= shift;
 			nBits -= shift;
 		}

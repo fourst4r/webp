@@ -10,7 +10,7 @@ class Visual extends utest.Test {
     }
 
     function testAll() {
-        final imgs = [/*"1", "2", "3", "4", "5", "1ll", "2ll", "3ll", "4ll", "5ll", "1a",*/ "2a"];
+        final imgs = ["1", "2", "3", "4", "5", "1ll", "2ll", "3ll", "4ll", "5ll", "1a", "2a"];
         for (n in imgs) 
             convert(n);
         Assert.pass();

@@ -10,7 +10,7 @@ typedef HNode = {
 }
 
 class HTree {
-    static final reverseBits = [
+    static final _reverseBits = [
         0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0, 0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
         0x08, 0x88, 0x48, 0xc8, 0x28, 0xa8, 0x68, 0xe8, 0x18, 0x98, 0x58, 0xd8, 0x38, 0xb8, 0x78, 0xf8,
         0x04, 0x84, 0x44, 0xc4, 0x24, 0xa4, 0x64, 0xe4, 0x14, 0x94, 0x54, 0xd4, 0x34, 0xb4, 0x74, 0xf4,
@@ -29,17 +29,17 @@ class HTree {
         0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef, 0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff,
     ];
 
-    static inline var leafNode:Int = -1;
-    static inline var lutSize:Int = 7;
-    static inline var lutMask:Int = (1 << lutSize) - 1;
+    static inline var _leafNode:Int = -1;
+    static inline var _lutSize:Int = 7;
+    static inline var _lutMask:Int = (1 << _lutSize) - 1;
 
-    var nodes:Array<HNode>;
-    var lut:Array<Int>;
+    var _nodes:Array<HNode>;
+    var _lut:Array<Int>;
 
     public function new() {
-        nodes = [ { symbol: 0, children: 0 } ]; // Root node
-        lut = new Array<Int>();
-        for (i in 0...1 << lutSize) lut.push(0);
+        _nodes = [ { symbol: 0, children: 0 } ]; // Root node
+        _lut = new Array<Int>();
+        for (i in 0...1 << _lutSize) _lut.push(0);
     }
 
     public function insert(symbol:Int, code:Int, codeLength:Int) {
@@ -47,45 +47,45 @@ class HTree {
             throw "Invalid Huffman tree";
 
         var baseCode = 0;
-        if (codeLength > lutSize) {
-            baseCode = reverseBits[(code >> (codeLength - lutSize)) & 0xFF] >> (8 - lutSize);
+        if (codeLength > _lutSize) {
+            baseCode = _reverseBits[(code >> (codeLength - _lutSize)) & 0xFF] >> (8 - _lutSize);
         } else {
-            baseCode = reverseBits[code & 0xFF] >> (8 - codeLength);
-            for (i in 0...1 << (lutSize - codeLength)) {
-                lut[baseCode | (i << codeLength)] = (symbol << 8) | (codeLength + 1);
+            baseCode = _reverseBits[code & 0xFF] >> (8 - codeLength);
+            for (i in 0...1 << (_lutSize - codeLength)) {
+                _lut[baseCode | (i << codeLength)] = (symbol << 8) | (codeLength + 1);
             }
         }
 
         var n = 0;
-        var jump = lutSize;
+        var jump = _lutSize;
         while (codeLength > 0) {
             codeLength--;
-            if (n >= nodes.length) 
+            if (n >= _nodes.length) 
                 throw "Invalid Huffman tree";
 
-            switch (nodes[n].children) {
-                case leafNode: 
+            switch (_nodes[n].children) {
+                case _leafNode: 
                     throw "Invalid Huffman tree";
                 case 0:
                     // if (nodes.length == nodes.capacity) 
                     //     throw "Invalid Huffman tree";
-                    nodes[n].children = nodes.length;
-                    nodes.push({ symbol: 0, children: 0 });
-                    nodes.push({ symbol: 0, children: 0 });
+                    _nodes[n].children = _nodes.length;
+                    _nodes.push({ symbol: 0, children: 0 });
+                    _nodes.push({ symbol: 0, children: 0 });
             }
-            n = nodes[n].children + (code >> codeLength & 1);
+            n = _nodes[n].children + (code >> codeLength & 1);
             jump--;
-            if (jump == 0 && lut[baseCode] == 0) {
-                lut[baseCode] = n << 8;
+            if (jump == 0 && _lut[baseCode] == 0) {
+                _lut[baseCode] = n << 8;
             }
         }
 
-        if (nodes[n].children == 0) {
-            nodes[n].children = leafNode;
-        } else if (nodes[n].children != leafNode) {
+        if (_nodes[n].children == 0) {
+            _nodes[n].children = _leafNode;
+        } else if (_nodes[n].children != _leafNode) {
             throw "Invalid Huffman tree";
         }
-        nodes[n].symbol = symbol;
+        _nodes[n].symbol = symbol;
     }
 
     public function build(codeLengths:Array<Int>) {
@@ -100,7 +100,7 @@ class HTree {
         if (nSymbols == 0) 
             throw "Invalid Huffman tree";
         
-        nodes = [{ symbol: 0, children: 0 }];
+        _nodes = [{ symbol: 0, children: 0 }];
         if (nSymbols == 1) {
             insert(lastSymbol, 0, 0);
             return;
@@ -116,8 +116,8 @@ class HTree {
 
     // buildSimple builds a Huffman tree with 1 or 2 symbols.
     public function buildSimple(nSymbols:Int, symbols:Array<Int>, alphabetSize:Int) {
-        nodes = [{symbol: 0, children: 0}]; // Initialize with a single root node
-        nodes.resize(2 * nSymbols - 1); // Allocate space
+        _nodes = [{symbol: 0, children: 0}]; // Initialize with a single root node
+        _nodes.resize(2 * nSymbols - 1); // Allocate space
 
         for (i in 0...nSymbols) {
             if (symbols[i] >= alphabetSize) {
@@ -129,20 +129,20 @@ class HTree {
 
     public function next(d:Vp8LDecoder):Int {
         function slowPath(n) {
-            while (nodes[n].children != leafNode) {
+            while (_nodes[n].children != _leafNode) {
                 if (d.nBits == 0) {
                     var c = d.r.readByte();
                     d.bits = c;
                     d.nBits = 8;
                 }
-                n = nodes[n].children + (d.bits & 1);
+                n = _nodes[n].children + (d.bits & 1);
                 d.bits >>= 1;
                 d.nBits--;
             }
-            return nodes[n].symbol;
+            return _nodes[n].symbol;
         }
 
-        if (d.nBits < lutSize) {
+        if (d.nBits < _lutSize) {
             try {
                 d.bits |= d.r.readByte() << d.nBits;
                 d.nBits += 8;
@@ -153,7 +153,7 @@ class HTree {
             }
         }
 
-        var n = lut[d.bits & lutMask];
+        var n = _lut[d.bits & _lutMask];
         if (n & 0xFF != 0) {
             var b = (n & 0xFF) - 1;
             d.bits >>= b;
@@ -162,8 +162,8 @@ class HTree {
         }
 
         n >>= 8;
-        d.bits >>= lutSize;
-        d.nBits -= lutSize;
+        d.bits >>= _lutSize;
+        d.nBits -= _lutSize;
         
         return slowPath(n);
     }

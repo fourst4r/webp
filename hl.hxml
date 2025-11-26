@@ -1,6 +1,0 @@
---class-path src
---class-path test
---main Test
---library format
---hl bin/main.hl
---cmd hl bin/main.hl

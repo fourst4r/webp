@@ -1,11 +1,21 @@
 package webp;
 
 import haxe.io.Bytes;
-import webp.FrameHeader;
 
 typedef Image = {
     header:FrameHeader,
     data:ImageData,
+}
+
+typedef FrameHeader = {
+    keyFrame:Bool,
+    versionNumber:Int,
+    showFrame:Bool,
+    firstPartitionLen:Int,
+    width:Int,
+    height:Int,
+    xScale:Int,
+    yScale:Int,
 }
 
 typedef AnimFrameHeader = {
@@ -18,7 +28,7 @@ typedef AnimFrameHeader = {
     dispose:Bool,
 }
 
-typedef Anim = {
+typedef AnimImage = {
     header:AnimFrameHeader,
     data:ImageData
 }
@@ -32,5 +42,5 @@ enum ImageData {
     Yuv420(y:Bytes, ystride:Int, u:Bytes, v:Bytes, uvstride:Int, ?a:Bytes);
     /** Argb (non-premultiplied) is the format of lossless WebP. **/
     Argb(pix:Bytes, stride:Int);
-    Anim(frames:Array<{header:AnimFrameHeader, data:ImageData}>);
+    Anim(frames:Array<AnimImage>);
 }

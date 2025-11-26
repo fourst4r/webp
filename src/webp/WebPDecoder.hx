@@ -1,16 +1,13 @@
 package webp;
 
-import haxe.ds.List;
-import webp.FrameHeader;
 import haxe.io.BytesInput;
-import webp.types.ConcatInput;
-import webp.vp8l.Vp8LDecoder;
 import haxe.io.Bytes;
 import haxe.io.Eof;
 import haxe.io.Input;
-import webp.Image.AnimFrameHeader;
-import webp.Image.ImageData;
+import webp.Image;
 import webp.vp8.Vp8Decoder;
+import webp.vp8l.Vp8LDecoder;
+import webp.types.ConcatInput;
 
 enum Chunk {
     CAlph(data:Bytes);
@@ -26,12 +23,12 @@ class WebPDecoder {
     var _i:Input;
     var _totalLen:Int;
     var _isLossy:Bool = false;
-    var hasAlpha:Bool = false;
-    var widthMinusOne:Int = 0;
-    var heightMinusOne:Int = 0;
-    var loopCount:Int = 0;
-    var backgroundColor:Int = 0;
-    var frames:Array<{header:AnimFrameHeader, data:ImageData}> = [];
+    var _hasAlpha:Bool = false;
+    var _widthMinusOne:Int = 0;
+    var _heightMinusOne:Int = 0;
+    var _loopCount:Int = 0;
+    var _backgroundColor:Int = 0;
+    var _frames:Array<AnimImage> = [];
 
     public function new(i:Input) {
         this._i = i;
@@ -81,8 +78,8 @@ class WebPDecoder {
     function readAlph(i:Input) {
         // Read the Pre-processing | Filter | Compression byte.
         final flags = i.readByte();
-        final alpha = readAlpha(i, widthMinusOne, heightMinusOne, flags & 0x03);
-        final alphaStride = widthMinusOne+1;
+        final alpha = readAlpha(i, _widthMinusOne, _heightMinusOne, flags & 0x03);
+        final alphaStride = _widthMinusOne+1;
         unfilterAlpha(alpha, alphaStride, (flags >> 2) & 0x03);
         return {
             alpha: alpha,
@@ -137,28 +134,28 @@ class WebPDecoder {
         final buf = i.read(10);
 
         var flags = buf.get(0);
-        hasAlpha = (flags & 0x10) != 0;
+        _hasAlpha = (flags & 0x10) != 0;
         
-        widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
-        heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
+        _widthMinusOne = buf.get(4) | (buf.get(5) << 8) | (buf.get(6) << 16);
+        _heightMinusOne = buf.get(7) | (buf.get(8) << 8) | (buf.get(9) << 16);
     }
 
     function readAnim(i:Input) {
-        backgroundColor = i.readInt32();
+        _backgroundColor = i.readInt32();
         final l0 = i.readByte();
         final l1 = i.readByte();
-        loopCount = l0 | (l1 << 8);
+        _loopCount = l0 | (l1 << 8);
     }
 
     function readAnmf(data:Bytes) {
         final i = new BytesInput(data);
         var remaining = data.length;
 
-        final frameX = readUint24(i);
-        final frameY = readUint24(i);
-        final frameWidthMinusOne = readUint24(i);
-        final frameHeightMinusOne = readUint24(i);
-        final duration = readUint24(i);
+        final frameX = i.readUInt24();
+        final frameY = i.readUInt24();
+        final frameWidthMinusOne = i.readUInt24();
+        final frameHeightMinusOne = i.readUInt24();
+        final duration = i.readUInt24();
         final flags = i.readByte();
         remaining -= 16; // consumed header bytes
 
@@ -176,7 +173,7 @@ class WebPDecoder {
         };
 
         final frameData = readFrameData(i, frameWidthMinusOne, frameHeightMinusOne);
-        frames.push({ header: frameHeader, data: frameData });
+        _frames.push({ header: frameHeader, data: frameData });
     }
 
     public static function decode(i:Input):Image {
@@ -203,20 +200,20 @@ class WebPDecoder {
                 // ignore
             }
         }
-        if (webp.frames.length > 0) {
+        if (webp._frames.length > 0) {
             final header = {
                 keyFrame: true,
                 versionNumber: 0,
                 showFrame: true,
                 firstPartitionLen: 0,
-                width: webp.widthMinusOne + 1,
-                height: webp.heightMinusOne + 1,
+                width: webp._widthMinusOne + 1,
+                height: webp._heightMinusOne + 1,
                 xScale: 0,
                 yScale: 0
             };
             return {
                 header: header,
-                data: Anim(webp.frames)
+                data: Anim(webp._frames)
             };
         }
         if (lossless != null) {
@@ -309,13 +306,6 @@ class WebPDecoder {
         }
 
         throw "Invalid format: no VP8/VP8L chunk found in ANMF";
-    }
-
-    inline static function readUint24(i:Input):Int {
-        final b0 = i.readByte();
-        final b1 = i.readByte();
-        final b2 = i.readByte();
-        return b0 | (b1 << 8) | (b2 << 16);
     }
 
     static function readAlpha(chunkData:Input, widthMinusOne:Int, heightMinusOne:Int, compression:Int):Bytes {

@@ -15,13 +15,13 @@ class Vp8LDecoder {
     public var bits: Int = 0;
     public var nBits: Int = 0;
 
-    final codeLengthCodeOrder = [
+    final _codeLengthCodeOrder = [
         17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
     ];
-    final repeatBits = [2, 3, 7];
-    final repeatOffsets = [3, 3, 11];
+    final _repeatBits = [2, 3, 7];
+    final _repeatOffsets = [3, 3, 11];
 
-    final alphabetSizes = [
+    final _alphabetSizes = [
         nLiteralCodes + nLengthCodes,
         nLiteralCodes,
         nLiteralCodes,
@@ -30,7 +30,7 @@ class Vp8LDecoder {
     ];
 
     // distanceMapTable is the look-up table for distanceMap.
-    static final distanceMapTable = [
+    static final _distanceMapTable = [
         0x18, 0x07, 0x17, 0x19, 0x28, 0x06, 0x27, 0x29, 0x16, 0x1a,
         0x26, 0x2a, 0x38, 0x05, 0x37, 0x39, 0x15, 0x1b, 0x36, 0x3a,
         0x25, 0x2b, 0x48, 0x04, 0x47, 0x49, 0x14, 0x1c, 0x35, 0x3b,
@@ -48,10 +48,10 @@ class Vp8LDecoder {
     // distanceMap maps an LZ77 backwards reference distance to a two-dimensional 
     // pixel offset, as specified in section 4.2.2.
     static function distanceMap(w:Int, code:Int):Int {
-        if (code > distanceMapTable.length) {
-            return code - distanceMapTable.length;
+        if (code > _distanceMapTable.length) {
+            return code - _distanceMapTable.length;
         }
-        var distCode:Int = distanceMapTable[code - 1];
+        var distCode:Int = _distanceMapTable[code - 1];
         var yOffset:Int = distCode >> 4;
         var xOffset:Int = 8 - (distCode & 0xF);
         var d:Int = yOffset * w + xOffset;
@@ -96,17 +96,27 @@ class Vp8LDecoder {
                     case 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16: 1;
                     default: 0;
                 }
+                var finalNumColors = 1 << (8 >> t.bits);
                 w = nTiles(w, t.bits);
-                var pix = decodePix(nColors, 1, 4 * 256, false);
+                var pix = decodePix(nColors, 1, 4 * finalNumColors, false);
+                var expanded = Bytes.alloc(4 * finalNumColors);
+                // First color is stored verbatim.
+                expanded.set(0, pix.get(0));
+                expanded.set(1, pix.get(1));
+                expanded.set(2, pix.get(2));
+                expanded.set(3, pix.get(3));
+
+                // Remaining colors are stored as deltas; expand and wrap to full range.
                 var p = 4;
-                while (p < pix.length) {
-                    pix.set(p, pix.get(p) + pix.get(p - 4));
-                    pix.set(p + 1, pix.get(p + 1) + pix.get(p - 3));
-                    pix.set(p + 2, pix.get(p + 2) + pix.get(p - 2));
-                    pix.set(p + 3, pix.get(p + 3) + pix.get(p - 1));
+                var maxP = 4 * nColors;
+                while (p < maxP) {
+                    expanded.set(p,     (pix.get(p)     + expanded.get(p - 4)) & 0xFF);
+                    expanded.set(p + 1, (pix.get(p + 1) + expanded.get(p - 3)) & 0xFF);
+                    expanded.set(p + 2, (pix.get(p + 2) + expanded.get(p - 2)) & 0xFF);
+                    expanded.set(p + 3, (pix.get(p + 3) + expanded.get(p - 1)) & 0xFF);
                     p += 4;
                 }
-                t.pix = pix.sub(0, 4 * 256);
+                t.pix = expanded;
         }
         return { t: t, newWidth: w };
     }
@@ -138,8 +148,8 @@ class Vp8LDecoder {
                 continue;
             }
 
-            var repeat = read(repeatBits[codeLength - 16]);
-            repeat += repeatOffsets[codeLength - 16];
+            var repeat = read(_repeatBits[codeLength - 16]);
+            repeat += _repeatOffsets[codeLength - 16];
             if (symbol + repeat > dst.length) throw "Invalid code lengths";
 
             var cl: UInt = (codeLength == 16) ? prevCodeLength : 0;
@@ -161,11 +171,11 @@ class Vp8LDecoder {
         }
 
         var nCodes = read(4) + 4;
-        if (nCodes > codeLengthCodeOrder.length) 
+        if (nCodes > _codeLengthCodeOrder.length) 
             throw "Invalid Huffman tree";
-        var codeLengthCodeLengths = [for (i in 0...codeLengthCodeOrder.length) 0];
+        var codeLengthCodeLengths = [for (i in 0..._codeLengthCodeOrder.length) 0];
         for (i in 0...nCodes) 
-            codeLengthCodeLengths[codeLengthCodeOrder[i]] = read(3);
+            codeLengthCodeLengths[_codeLengthCodeOrder[i]] = read(3);
 
         var codeLengths = [for (i in 0...alphabetSize) 0];
         decodeCodeLengths(codeLengths, codeLengthCodeLengths);
@@ -198,8 +208,8 @@ class Vp8LDecoder {
         for (i in 0...maxHGroupIndex + 1) {
             var group:HGroup = [for (i in 0...5) new HTree()];
             hGroups.push(group);
-            for (j in 0...alphabetSizes.length) {
-                var alphabetSize = alphabetSizes[j];
+            for (j in 0..._alphabetSizes.length) {
+                var alphabetSize = _alphabetSizes[j];
                 if (j == 0 && ccBits > 0) 
                     alphabetSize += 1 << ccBits;
                 decodeHuffmanTree(hGroups[i][j], alphabetSize);
