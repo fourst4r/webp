@@ -1,0 +1,12 @@
+{
+  "name": "webp",
+  "url" : "https://github.com/fourst4r/webp/",
+  "license": "MIT",
+  "tags": ["cross", "webp", "image", "decoder"],
+  "description": "Dependency free WebP decoder in pure Haxe.",
+  "version": "1.0.0",
+  "classPath": "src/",
+  "releasenote": "Initial release, everything is working correctly.",
+  "contributors": ["fourst4r"],
+  "dependencies": {}
+}
