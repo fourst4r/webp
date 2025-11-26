@@ -7,7 +7,7 @@ enum abstract TransformType(Int) {
     var Predictor = 0;
     var CrossColor = 1;
     var SubtractGreen = 2;
-    var ColorIndexing = 4;
+    var ColorIndexing = 3;
 }
 
 class Transform {

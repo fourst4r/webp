@@ -64,7 +64,8 @@ class HTree {
                 throw "Invalid Huffman tree";
 
             switch (nodes[n].children) {
-                case leafNode: throw "Invalid Huffman tree";
+                case leafNode: 
+                    throw "Invalid Huffman tree";
                 case 0:
                     // if (nodes.length == nodes.capacity) 
                     //     throw "Invalid Huffman tree";

@@ -6,7 +6,10 @@ import haxe.io.BytesInput;
 import webp.types.ConcatInput;
 import webp.vp8l.Vp8LDecoder;
 import haxe.io.Bytes;
+import haxe.io.Eof;
 import haxe.io.Input;
+import webp.Image.AnimFrameHeader;
+import webp.Image.ImageData;
 import webp.vp8.Vp8Decoder;
 
 enum Chunk {
@@ -26,6 +29,9 @@ class WebPDecoder {
     var hasAlpha:Bool = false;
     var widthMinusOne:Int = 0;
     var heightMinusOne:Int = 0;
+    var loopCount:Int = 0;
+    var backgroundColor:Int = 0;
+    var frames:Array<{header:AnimFrameHeader, data:ImageData}> = [];
 
     public function new(i:Input) {
         this._i = i;
@@ -102,7 +108,7 @@ class WebPDecoder {
     function readVp8l(i:Input) {
         final img = Vp8LDecoder.decode(i);
         final pix = img.pix;
-        // TODO: remove the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format). It was done that way due to a limitation in the Go version.
+        // TODO: refactor the code that originally changes this to RGBA (it's stored as ARGB internally by vp8 lossless format). It was done that way due to a limitation in the Go version.
         var i = 0;
         while (i < pix.length) {
             // Extract RGBA channels
@@ -138,11 +144,39 @@ class WebPDecoder {
     }
 
     function readAnim(i:Input) {
-        
+        backgroundColor = i.readInt32();
+        final l0 = i.readByte();
+        final l1 = i.readByte();
+        loopCount = l0 | (l1 << 8);
     }
 
-    function readAnmf(i:Input) {
+    function readAnmf(data:Bytes) {
+        final i = new BytesInput(data);
+        var remaining = data.length;
 
+        final frameX = readUint24(i);
+        final frameY = readUint24(i);
+        final frameWidthMinusOne = readUint24(i);
+        final frameHeightMinusOne = readUint24(i);
+        final duration = readUint24(i);
+        final flags = i.readByte();
+        remaining -= 16; // consumed header bytes
+
+        final dispose = (flags & 0x01) != 0;
+        final blend = (flags & 0x02) == 0;
+
+        final frameHeader:AnimFrameHeader = {
+            x: frameX,
+            y: frameY,
+            width: frameWidthMinusOne + 1,
+            height: frameHeightMinusOne + 1,
+            duration: duration,
+            blend: blend,
+            dispose: dispose
+        };
+
+        final frameData = readFrameData(i, frameWidthMinusOne, frameHeightMinusOne);
+        frames.push({ header: frameHeader, data: frameData });
     }
 
     public static function decode(i:Input):Image {
@@ -164,10 +198,26 @@ class WebPDecoder {
             case CAnim(data):
                 webp.readAnim(new BytesInput(data));
             case CAnmf(data):
-                webp.readAnmf(new BytesInput(data));
+                webp.readAnmf(data);
             case CUnknown(id, data):
                 // ignore
             }
+        }
+        if (webp.frames.length > 0) {
+            final header = {
+                keyFrame: true,
+                versionNumber: 0,
+                showFrame: true,
+                firstPartitionLen: 0,
+                width: webp.widthMinusOne + 1,
+                height: webp.heightMinusOne + 1,
+                xScale: 0,
+                yScale: 0
+            };
+            return {
+                header: header,
+                data: Anim(webp.frames)
+            };
         }
         if (lossless != null) {
             final header = lossless.header ?? {
@@ -206,6 +256,66 @@ class WebPDecoder {
             chunks.push(chunk);
         }
         return chunks;
+    }
+
+    function readFrameData(i:BytesInput, frameWidthMinusOne:Int, frameHeightMinusOne:Int):ImageData {
+        var alpha:Bytes = null;
+        var lossy = null;
+        var lossless = null;
+
+        while (i.position < i.length) {
+            if (i.length - i.position < 8)
+                break; // not enough for another subchunk header
+            var id:String;
+            try {
+                id = i.readString(4);
+            } catch (_:Eof) {
+                break;
+            }
+            final dataLen = i.readInt32();
+            if (dataLen < 0 || dataLen > (i.length - i.position))
+                throw "Invalid ANMF subchunk length";
+            final data = i.read(dataLen);
+            if ((dataLen & 1) == 1 && i.position < i.length)
+                i.readByte(); // padded to even size
+
+            switch id {
+            case "ALPH":
+                final aInput = new BytesInput(data);
+                final flags = aInput.readByte();
+                try {
+                    final a = readAlpha(aInput, frameWidthMinusOne, frameHeightMinusOne, flags & 0x03);
+                    unfilterAlpha(a, frameWidthMinusOne + 1, (flags >> 2) & 0x03);
+                    alpha = a;
+                } catch (_:Dynamic) {
+                    // If alpha decoding fails, fall back to opaque frame.
+                    alpha = null;
+                }
+            case "VP8 ":
+                lossy = readVp8(new BytesInput(data));
+            case "VP8L":
+                lossless = readVp8l(new BytesInput(data));
+            default:
+                // ignore other sub-chunks inside the frame
+            }
+        }
+
+        if (lossless != null) {
+            return Argb(lossless.argb, lossless.stride);
+        }
+
+        if (lossy != null) {
+            return Yuv420(lossy.y, lossy.ystride, lossy.cb, lossy.cr, lossy.cstride, alpha);
+        }
+
+        throw "Invalid format: no VP8/VP8L chunk found in ANMF";
+    }
+
+    inline static function readUint24(i:Input):Int {
+        final b0 = i.readByte();
+        final b1 = i.readByte();
+        final b2 = i.readByte();
+        return b0 | (b1 << 8) | (b2 << 16);
     }
 
     static function readAlpha(chunkData:Input, widthMinusOne:Int, heightMinusOne:Int, compression:Int):Bytes {

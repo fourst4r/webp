@@ -11,6 +11,8 @@ typedef Image = {
 typedef AnimFrameHeader = {
     x:Int,
     y:Int,
+    width:Int,
+    height:Int,
     duration:Int,
     blend:Bool,
     dispose:Bool,
