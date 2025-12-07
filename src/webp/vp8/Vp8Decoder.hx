@@ -191,10 +191,10 @@ class Vp8Decoder {
         final width = mbw*16;
         final height = mbh*16;
         YStride = width;
-		CStride = width >> 1;
-		Y = Bytes.alloc(YStride * height);
-		Cb = Bytes.alloc(CStride * (height >> 1));
-		Cr = Bytes.alloc(CStride * (height >> 1));
+        CStride = width >> 1;
+        Y = Bytes.alloc(YStride * height);
+        Cb = Bytes.alloc(CStride * (height >> 1));
+        Cr = Bytes.alloc(CStride * (height >> 1));
 
         perMBFilterParams = [];
         upMB = [];
@@ -539,42 +539,42 @@ class Vp8Decoder {
     }
 
     function prepareYBR(mbx:Int, mby:Int):Void {
-		if (mbx == 0) {
-			for (y in 0...17) ybr[y][7] = 0x81;
-			for (y in 17...26) {
-				ybr[y][7] = 0x81;
-				ybr[y][23] = 0x81;
-			}
-		} else {
-			for (y in 0...17) ybr[y][7] = ybr[y][7 + 16];
-			for (y in 17...26) {
-				ybr[y][7] = ybr[y][15];
-				ybr[y][23] = ybr[y][31];
-			}
-		}
+        if (mbx == 0) {
+            for (y in 0...17) ybr[y][7] = 0x81;
+            for (y in 17...26) {
+                ybr[y][7] = 0x81;
+                ybr[y][23] = 0x81;
+            }
+        } else {
+            for (y in 0...17) ybr[y][7] = ybr[y][7 + 16];
+            for (y in 17...26) {
+                ybr[y][7] = ybr[y][15];
+                ybr[y][23] = ybr[y][31];
+            }
+        }
 
-		if (mby == 0) {
-			for (x in 7...28) ybr[0][x] = 0x7f;
-			for (x in 7...16) ybr[17][x] = 0x7f;
-			for (x in 23...32) ybr[17][x] = 0x7f;
-		} else {
-			for (i in 0...16) ybr[0][8 + i] =  Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
-			for (i in 0...8) ybr[17][8 + i] =  Cb.get((8 * mby - 1) * CStride + 8 * mbx + i);
-			for (i in 0...8) ybr[17][24 + i] = Cr.get((8 * mby - 1) * CStride + 8 * mbx + i);
+        if (mby == 0) {
+            for (x in 7...28) ybr[0][x] = 0x7f;
+            for (x in 7...16) ybr[17][x] = 0x7f;
+            for (x in 23...32) ybr[17][x] = 0x7f;
+        } else {
+            for (i in 0...16) ybr[0][8 + i] =  Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
+            for (i in 0...8) ybr[17][8 + i] =  Cb.get((8 * mby - 1) * CStride + 8 * mbx + i);
+            for (i in 0...8) ybr[17][24 + i] = Cr.get((8 * mby - 1) * CStride + 8 * mbx + i);
 
-			if (mbx == mbw - 1) {
-				for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + 15);
-			} else {
-				for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
-			}
-		}
+            if (mbx == mbw - 1) {
+                for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + 15);
+            } else {
+                for (i in 16...20) ybr[0][8 + i] = Y.get((16 * mby - 1) * YStride + 16 * mbx + i);
+            }
+        }
 
         var y = 4;
         while (y < 16) {
             for (x in 24...28) ybr[y][x] = ybr[0][x];
             y += 4;
         }
-	}
+    }
 
     function parseResiduals4(r: Partition, plane: Int, context: Int, quant: Array<Int>, skipFirstCoeff: Bool, coeffBase: Int): Int {
         var prob = tokenProb[plane];
@@ -825,9 +825,9 @@ class Vp8Decoder {
 
     static function copy(dst:Bytes, pos:Int, src:Vector<Int>, srcpos:Int, len:Int):Void {
         #if !neko
-		if (pos < 0 || srcpos < 0 || len < 0 || pos + len > dst.length || srcpos + len > src.length)
-			throw "out of bounds";
-		#end
+        if (pos < 0 || srcpos < 0 || len < 0 || pos + len > dst.length || srcpos + len > src.length)
+            throw "out of bounds";
+        #end
 
         var dsti = pos;
         for (srci in srcpos...(srcpos + len)) {
